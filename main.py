@@ -62,7 +62,8 @@ model.compile(optimizer=sgd, loss=detregionloss.regionloss, metrics=[detregionlo
 #
 #
 if len(sys.argv) < 2:
-	print 'Usage:: python main.py train trainlist numberofsamples pretrined.h5'
+	print 'Usage:: python main.py train trainlist numberofsamples pretrined.h5 [1/0]'
+	print 'Usage:: python main.py train_on_batch trainlist numberofsamples pretrined.h5'
 	print 'Usage:: python main.py testfile testlist thresh pretrined.h5'
 	print 'Usage:: python main.py testvideo videofile thresh pretrined.h5'
 	exit()
@@ -91,7 +92,16 @@ if sys.argv[1]=='train':
 	numberofsamples = train_labels.shape[0]
 
 
-	model.fit(train_data[0:numberofsamples], train_labels[0:numberofsamples],nb_epoch=nb_epoch, batch_size=batch_size, callbacks=[adaptive_lr, history] )
+	#
+	if len(sys.argv)>5:
+		if int(sys.argv[5]) ==1:
+			DEBUG_IMG = True
+
+	if DEBUG_IMG:
+		model.fit(train_data[0:numberofsamples], train_labels[0:numberofsamples],nb_epoch=nb_epoch, batch_size=batch_size, callbacks=[adaptive_lr, history] )
+	else:
+		model.fit(train_data[0:numberofsamples], train_labels[0:numberofsamples],nb_epoch=nb_epoch, batch_size=batch_size, callbacks=[adaptive_lr] )
+	#
 	#for e in range(nb_epoch):
 	#	ran_train_data = genregiontruth.randompixel(train_data)
 	#	if DEBUG_IMG:
