@@ -46,7 +46,17 @@ TestVideo (need Python-OPENCV)
 Code explanation
 ---------------------------------------------------------------------------------------------
 
-main.py: entry point
+    main.py: entry point
+    
+    genregiontruth.py: prepare truth and train data
+    
+    detregionloss.py: loss function
+    
+    builtinModel.py: define object detection neueon network structure
+    
+    imagefordebug.txt: image for train debug use case
+    
+    detregion.cfg: detection parameter
 
 
 
