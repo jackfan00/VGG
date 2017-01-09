@@ -30,7 +30,7 @@ def yoloconfidloss(y_true, y_pred, t):
 	ave_anyobj = K.mean(pobj)
 	obj = tf.select(t, pobj, K.zeros_like(y_pred))
 	objcount = tf.select(t, K.ones_like(y_pred), K.zeros_like(y_pred))
-	ave_obj = K.mean(K.sum(obj, axis=1) / K.sum(objcount, axis=1))
+	ave_obj = K.mean( K.sum(obj, axis=1) / (K.sum(objcount, axis=1)+0.000001) ) # prevent div 0
 	return loss, ave_anyobj, ave_obj
 
 # shape is (gridcells*2,)
@@ -50,6 +50,7 @@ def yolowhloss(y_true, y_pred, t):
         value_if_true = lamda_wh*(lo)
         value_if_false = K.zeros_like(y_true)
         loss1 = tf.select(t, value_if_true, value_if_false)
+	#return K.mean(loss1/(y_true+0.000000001))
 	return K.mean(loss1)
 
 # shape is (gridcells*classes,)
@@ -82,7 +83,10 @@ def overlap(x1, w1, x2, w2):
 
 def iou(x_true,y_true,w_true,h_true,x_pred,y_pred,w_pred,h_pred,t):
 	xoffset = K.cast_to_floatx(np.tile(np.tile(np.arange(side),side),bnum))
-	yoffset = K.cast_to_floatx(np.tile(np.repeat(np.arange(side),side),bnum))
+        yoffset = K.cast_to_floatx(np.tile(np.repeat(np.arange(side),side),bnum))
+
+	#xoffset = K.cast_to_floatx((np.tile(np.arange(side),side)))
+	#yoffset = K.cast_to_floatx((np.repeat(np.arange(side),side)))
 	x = tf.select(t, K.sigmoid(x_pred), K.zeros_like(x_pred)) 
 	y = tf.select(t, K.sigmoid(y_pred), K.zeros_like(y_pred))
 	w = tf.select(t, K.sigmoid(w_pred), K.zeros_like(w_pred))
@@ -95,26 +99,47 @@ def iou(x_true,y_true,w_true,h_true,x_pred,y_pred,w_pred,h_pred,t):
 	intersection = ow*oh
 	union = w*h*(side**2) + w_true*h_true*(side**2) - intersection + K.epsilon()  # prevent div 0
 
-	iouall = intersection / union
-	iouall = K.reshape(iouall, (-1, bnum, gridcells))
-	# bestiou deminsion become gridcells, shape=(-1, gridcells)
-	# 
-	bestiou = K.max(iouall, axis=1)
-	# maxiou shape=(-1,bnum,gridcells)
-	maxiou_inbox = K.repeat(bestiou, bnum) #K.repeat func is like np.tile
 	#
-	bestiou_flag = (iouall == maxiou_inbox)
-	bestiou_flag = K.reshape(bestiou_flag, (-1, bnum*gridcells))
+	# find best iou among bboxs
+	# iouall shape=(-1, bnum*gridcells)
+        iouall = intersection / union
+        iouall = K.reshape(iouall, (-1, bnum, gridcells))
+	#
+        # bestiou deminsion become gridcells, shape=(-1, gridcells)
+        bestiou = K.max(iouall, axis=1)
+	#
+        # maxiou_inbox shape=(-1,bnum,gridcells)
+        maxiou_inbox = K.repeat(bestiou, bnum) #K.repeat func is like np.tile
+        #
+        bestiou_flag = K.equal( K.reshape(iouall, (-1, bnum*gridcells)) , K.reshape(maxiou_inbox, (-1, bnum*gridcells)) )
+	#
+	#return iouall, maxiou_inbox, bestiou_flag 
+	# only obj and bestiou coexist become True
+        #bestiou_flag = K.reshape(bestiou_flag, (-1, bnum*gridcells))
+	bestiou_flag = tf.logical_and(t, bestiou_flag)
+	#
+	recall_t = K.greater(bestiou, 0.5)
+	recall_count = K.sum(tf.select(recall_t, K.ones_like(bestiou), K.zeros_like(bestiou)))
 
+	#
+	#recall_iou = intersection / union
+	#recall_t = K.greater(recall_iou, 0.5)
+	#recall_count = K.sum(tf.select(recall_t, K.ones_like(recall_iou), K.zeros_like(recall_iou)))
+	#
 	#iou = K.sum(intersection / union, axis=1)
 	obj_count = K.sum(tf.select(t, K.ones_like(x_true), K.zeros_like(x_true)), axis=1)
+	#
+	#ave_iou = K.sum(iou) / K.sum(obj_count)
 	ave_iou = K.sum(bestiou) / (K.sum(obj_count) / bnum)
-	return ave_iou, bestiou_flag 
+	#recall = recall_count / K.sum(obj_count)
+	recall = recall_count / (K.sum(obj_count) / bnum)
+	#return ave_iou, recall, bestiou_flag, intersection, union,ow,oh,x,y,w,h
+	return obj_count, ave_iou, bestiou 
 
 # shape is (gridcells*(5+classes), )
 def yololoss(y_true, y_pred):
         truth_confid_tf = tf.slice(y_true, [0,0], [-1,gridcells*bnum])
-        truth_x_tf = tf.slice(y_true, [0,gridcells*bnum*1], [-1,gridcells*bnum])
+        truth_x_tf = tf.slice(y_true, [0,gridcells*bnum], [-1,gridcells*bnum])
         truth_y_tf = tf.slice(y_true, [0,gridcells*bnum*2], [-1,gridcells*bnum])
         truth_w_tf = tf.slice(y_true, [0,gridcells*bnum*3], [-1,gridcells*bnum])
         truth_h_tf = tf.slice(y_true, [0,gridcells*bnum*4], [-1,gridcells*bnum])
@@ -126,7 +151,7 @@ def yololoss(y_true, y_pred):
 
 
         pred_confid_tf = tf.slice(y_pred, [0,0], [-1,gridcells*bnum])
-        pred_x_tf = tf.slice(y_pred, [0,gridcells*bnum*1], [-1,gridcells*bnum])
+        pred_x_tf = tf.slice(y_pred, [0,gridcells*bnum], [-1,gridcells*bnum])
         pred_y_tf = tf.slice(y_pred, [0,gridcells*bnum*2], [-1,gridcells*bnum])
         pred_w_tf = tf.slice(y_pred, [0,gridcells*bnum*3], [-1,gridcells*bnum])
         pred_h_tf = tf.slice(y_pred, [0,gridcells*bnum*4], [-1,gridcells*bnum])
@@ -159,12 +184,11 @@ def yololoss(y_true, y_pred):
         	ctf = tf.slice(pred_classall_softmax_tf, [0,gridcells*bnum*(0+i)], [-1,gridcells*bnum])
 		pred_classes_tf.append(ctf)
 
-
 	t = K.greater(truth_confid_tf, 0.5) 
-	ave_iou, bestiou_flag = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
+	ave_iou, recall, bestiou_flag, intersection, union,ow,oh,x,y,w,h = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
 
 	# constraint bestiou
-	t = tf.logical_and(t, bestiou_flag)
+        t = tf.logical_and(t, bestiou_flag)
 
 	confidloss, ave_anyobj, ave_obj = yoloconfidloss(truth_confid_tf, pred_confid_tf, t)
 	xloss = yoloxyloss(truth_x_tf, pred_x_tf, t)
@@ -189,7 +213,7 @@ def yololoss(y_true, y_pred):
 	loss = confidloss+xloss+yloss+wloss+hloss+classesloss
 	#loss = wloss+hloss
 	#
-	return loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, intersection, union,ow,oh,x,y,w,h
+	return loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, bestiou_flag, intersection, union,ow,oh,x,y,w,h
 	#return loss, ave_cat, ave_obj, ave_anyobj, ave_iou
 
 
@@ -200,13 +224,13 @@ def limit(x):
 
 def regionloss(y_true, y_pred):
 	limited_pred = limit(y_pred)
-	loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
+	loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, bestiou_flag, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
 	#return confidloss+xloss+yloss+wloss+hloss
 	return loss
 
 def regionmetrics(y_true, y_pred):
 	limited_pred = limit(y_pred)
-        loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
+        loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, bestiou_flag, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
 	pw = K.sum(w)
 	ph = K.sum(h)
 	return {
@@ -216,11 +240,12 @@ def regionmetrics(y_true, y_pred):
 		#'yloss' : yloss,
 		#'wloss' : wloss,
 		#'hloss' : hloss,
-		'classesloss' : classesloss,
+		#'classesloss' : classesloss,
 		'ave_cat' : ave_cat,
 		'ave_obj' : ave_obj,
 		'ave_anyobj' : ave_anyobj,
-		'ave_iou' : ave_iou
+		'ave_iou' : ave_iou,
+		'recall' : recall
 		#'predw' : pw,
 		#'predh' : ph,
 		#'ow' : K.sum(ow),
@@ -243,79 +268,92 @@ def check(detection_layer,model):
 #
 if DEBUG_loss:
 
-	side = 5
-	bnum = 2
+	#side = 5
+	#bnum = 2
         obj_row = 2
         obj_col = 2
 	obj_class = 6
 
-        x_true =K.placeholder(ndim=2)
-        x_pred =K.placeholder(ndim=2)
-	classall, classall_celltype, classall_softmaxtype, class_softmax_softmaxtype, classall_softmax_celltype, pred_classall_softmax_t = yololoss(x_true, x_pred)
+        #x_true =K.placeholder(ndim=2)
+        #x_pred =K.placeholder(ndim=2)
+	#classall, classall_celltype, classall_softmaxtype, class_softmax_softmaxtype, classall_softmax_celltype, pred_classall_softmax_t = yololoss(x_true, x_pred)
 	#classesloss, ave_cat = yololoss(x_true, x_pred)
-	classcheck_f = K.function([x_true, x_pred], [classall, classall_celltype, classall_softmaxtype, class_softmax_softmaxtype, classall_softmax_celltype, pred_classall_softmax_t])
+	#classcheck_f = K.function([x_true, x_pred], [classall, classall_celltype, classall_softmaxtype, class_softmax_softmaxtype, classall_softmax_celltype, pred_classall_softmax_t])
 	#classcheck_f = K.function([x_true, x_pred], [classesloss, ave_cat])
-	tx = np.zeros((side**2)*(classes+5)*bnum)
-	for i in range(bnum):
-	        tx[side*obj_row+obj_col+(side**2)*i] = 1
-	        tx[1*bnum*(side**2)+side*obj_row+obj_col+(side**2)*i] = 0.1
-	        tx[2*bnum*(side**2)+side*obj_row+obj_col+(side**2)*i] = 0.2
-	        tx[3*bnum*(side**2)+side*obj_row+obj_col+(side**2)*i] = 0.3
-	        tx[4*bnum*(side**2)+side*obj_row+obj_col+(side**2)*i] = 0.4
-		tx[bnum*(side**2)*(5+obj_class)+side*obj_row+obj_col+(side**2)*i] = 1
+	#tx = np.zeros((side**2)*(classes+5))
+        #tx[side*obj_row+obj_col] = 1
+	#tx[(side**2)*(5+obj_class)+side*obj_row+obj_col] = 1
 
-	px = np.arange((side**2)*(classes+5)*bnum)
+	#px = np.arange((side**2)*(classes+5))
 
-	a0,a1,a2,a3,a4,a5 = classcheck_f([np.asarray([tx]),np.asarray([px])])
+	#a0,a1,a2,a3,a4,a5 = classcheck_f([np.asarray([tx]),np.asarray([px])])
 	#a0,a1 = classcheck_f([np.asarray([tx]),np.asarray([px])])
-	print a0
-
-        #t =K.placeholder(ndim=2, dtype=tf.bool)
-        #truth_x_tf =K.placeholder(ndim=2)
-        #truth_y_tf =K.placeholder(ndim=2)
-        #truth_w_tf =K.placeholder(ndim=2)
-        #truth_h_tf =K.placeholder(ndim=2)
-        #pred_x_tf =K.placeholder(ndim=2)
-        #pred_y_tf =K.placeholder(ndim=2)
-        #pred_w_tf =K.placeholder(ndim=2)
-        #pred_h_tf =K.placeholder(ndim=2)
-
-        #ave_iou, intersection, union,ow,oh,x,y,w,h = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
-	#iouf = K.function([truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t], [ave_iou, intersection, union,ow,oh,x,y,w,h])
-	# 0.507 0.551051051051 0.39 0.51951951952
-	#np_t = np.zeros((side**2)*2).reshape(2,side**2)
-	#obj_t = np_t >1
-	#obj_t[0][obj_row*side+obj_col] = True
-	#obj_t[1][obj_row*side+obj_col] = True
-	#tx = np.zeros((side**2)*2).reshape(2,side**2)
-	#ty = np.zeros((side**2)*2).reshape(2,side**2)
-	#tw = np.zeros((side**2)*2).reshape(2,side**2)
-	#th = np.zeros((side**2)*2).reshape(2,side**2)
-	#tx[0][obj_row*side+obj_col] = 0.507*side - int(0.507*side)
-	#ty[0][obj_row*side+obj_col] = 0.551051051051*side - int(0.551051051051*side)
-	#tw[0][obj_row*side+obj_col] = 0.39
-	#th[0][obj_row*side+obj_col] = 0.51951951952
-	#px = np.random.random((side**2)*2).reshape(2,side**2)
-	#py = np.random.random((side**2)*2).reshape(2,side**2)
-	#pw = np.random.random((side**2)*2).reshape(2,side**2)
-	#ph = np.random.random((side**2)*2).reshape(2,side**2)
-	#px[0][obj_row*side+obj_col] = 0.5
-	#py[0][obj_row*side+obj_col] = 0.5
-	#pw[0][obj_row*side+obj_col] = 0.39/0.66
-	#ph[0][obj_row*side+obj_col] = 0.51951951952/0.66
-
-	#tx[1][obj_row*side+obj_col] = tx[0][obj_row*side+obj_col]
-	#ty[1][obj_row*side+obj_col] = ty[0][obj_row*side+obj_col]
-	#tw[1][obj_row*side+obj_col] = tw[0][obj_row*side+obj_col]
-	#th[1][obj_row*side+obj_col] = th[0][obj_row*side+obj_col]
-        #px[1][obj_row*side+obj_col] = px[0][obj_row*side+obj_col]
-        #py[1][obj_row*side+obj_col] = py[0][obj_row*side+obj_col]
-        #pw[1][obj_row*side+obj_col] = pw[0][obj_row*side+obj_col]
-        #ph[1][obj_row*side+obj_col] = ph[0][obj_row*side+obj_col]
-
-
-	#[a0,a1,a2,b0,b1,c0,c1,c2,c3]= iouf([tx,ty,tw,th,px,py,pw,ph,obj_t])
 	#print a0
+
+        t =K.placeholder(ndim=2, dtype=tf.bool)
+        truth_x_tf =K.placeholder(ndim=2)
+        truth_y_tf =K.placeholder(ndim=2)
+        truth_w_tf =K.placeholder(ndim=2)
+        truth_h_tf =K.placeholder(ndim=2)
+        pred_x_tf =K.placeholder(ndim=2)
+        pred_y_tf =K.placeholder(ndim=2)
+        pred_w_tf =K.placeholder(ndim=2)
+        pred_h_tf =K.placeholder(ndim=2)
+
+        #ave_iou,recall,bestiou_flag, intersection, union,ow,oh,x,y,w,h = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
+	#iouf = K.function([truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t], [ave_iou,recall,bestiou_flag, intersection, union,ow,oh,x,y,w,h])
+
+	iouall, maxiou_inbox, bestiou_flag = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
+	iouf = K.function([truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t], [iouall, maxiou_inbox, bestiou_flag])
+
+	# 0.507 0.551051051051 0.39 0.51951951952
+	np_t = np.zeros((side**2)*bnum*2).reshape(2,(side**2)*bnum)
+	obj_t = np_t >1
+	obj_t[0][obj_row*side+obj_col] = True
+	obj_t[0][obj_row*side+obj_col+side**2] = True
+	obj_t[1][1+obj_row*side+obj_col] = True  # second bbox
+	obj_t[1][1+obj_row*side+obj_col+(side**2)] = True  # second bbox
+	tx = np.zeros((side**2)*bnum*2).reshape(2,side**2*bnum)
+	ty = np.zeros((side**2)*bnum*2).reshape(2,side**2*bnum)
+	tw = np.zeros((side**2)*bnum*2).reshape(2,side**2*bnum)
+	th = np.zeros((side**2)*bnum*2).reshape(2,side**2*bnum)
+	tx[0][obj_row*side+obj_col] = 0.507*side - int(0.507*side)
+	ty[0][obj_row*side+obj_col] = 0.551051051051*side - int(0.551051051051*side)
+	tw[0][obj_row*side+obj_col] = 0.39
+	th[0][obj_row*side+obj_col] = 0.51951951952
+        tx[0][obj_row*side+obj_col+side**2] = 0.507*side - int(0.507*side)
+        ty[0][obj_row*side+obj_col+side**2] = 0.551051051051*side - int(0.551051051051*side)
+        tw[0][obj_row*side+obj_col+side**2] = 0.39
+        th[0][obj_row*side+obj_col+side**2] = 0.51951951952
+
+        tx[1][1+obj_row*side+obj_col] = 0.507*side - int(0.507*side)
+        ty[1][1+obj_row*side+obj_col] = 0.551051051051*side - int(0.551051051051*side)
+        tw[1][1+obj_row*side+obj_col] = 0.39
+        th[1][1+obj_row*side+obj_col] = 0.51951951952
+        tx[1][1+obj_row*side+obj_col+side**2] = 0.507*side - int(0.507*side)
+        ty[1][1+obj_row*side+obj_col+side**2] = 0.551051051051*side - int(0.551051051051*side)
+        tw[1][1+obj_row*side+obj_col+side**2] = 0.39
+        th[1][1+obj_row*side+obj_col+side**2] = 0.51951951952
+
+	px = np.random.random((side**2)*bnum*2).reshape(2,side**2*bnum)
+	py = np.random.random((side**2)*bnum*2).reshape(2,side**2*bnum)
+	pw = np.random.random((side**2)*bnum*2).reshape(2,side**2*bnum)
+	ph = np.random.random((side**2)*bnum*2).reshape(2,side**2*bnum)
+	px[0][obj_row*side+obj_col] = 0.5
+	py[0][obj_row*side+obj_col] = 0.5
+	pw[0][obj_row*side+obj_col] = 0.39/0.9
+	ph[0][obj_row*side+obj_col] = 0.51951951952/0.9
+
+
+        px[1][1+obj_row*side+obj_col+(side**2)] = px[0][obj_row*side+obj_col]
+        py[1][1+obj_row*side+obj_col+(side**2)] = py[0][obj_row*side+obj_col]
+        pw[1][1+obj_row*side+obj_col+(side**2)] = pw[0][obj_row*side+obj_col]
+        ph[1][1+obj_row*side+obj_col+(side**2)] = ph[0][obj_row*side+obj_col]
+
+
+	#[a0,a1,a2,a3,a4,b0,b1,c0,c1,c2,c3]= iouf([tx,ty,tw,th,px,py,pw,ph,obj_t])
+	[a0,a1,a2]= iouf([tx,ty,tw,th,px,py,pw,ph,obj_t])
+	print a0
 
 
 	#x =K.placeholder(ndim=2)
