@@ -94,10 +94,16 @@ def iou(x_true,y_true,w_true,h_true,x_pred,y_pred,w_pred,h_pred,t):
 	oh = tf.select(K.greater(oh,0), oh, K.zeros_like(oh))
 	intersection = ow*oh
 	union = w*h*(side**2) + w_true*h_true*(side**2) - intersection + K.epsilon()  # prevent div 0
+	#
+	recall_iou = intersection / union
+	recall_t = K.greater(recall_iou, 0.5)
+	recall_count = K.sum(tf.select(recall_t, K.ones_like(recall_iou), K.zeros_like(recall_iou)))
+	#
 	iou = K.sum(intersection / union, axis=1)
 	obj_count = K.sum(tf.select(t, K.ones_like(x_true), K.zeros_like(x_true)), axis=1)
 	ave_iou = K.sum(iou) / K.sum(obj_count)
-	return ave_iou, intersection, union,ow,oh,x,y,w,h
+	recall = recall_count / K.sum(obj_count)
+	return ave_iou, recall, intersection, union,ow,oh,x,y,w,h
 
 # shape is (gridcells*(5+classes), )
 def yololoss(y_true, y_pred):
@@ -155,7 +161,7 @@ def yololoss(y_true, y_pred):
 	wloss = yolowhloss(truth_w_tf, pred_w_tf, t)
 	hloss = yolowhloss(truth_h_tf, pred_h_tf, t)
 
-	ave_iou, intersection, union,ow,oh,x,y,w,h = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
+	ave_iou, recall, intersection, union,ow,oh,x,y,w,h = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
 
 	classesloss =0
 	ave_cat =0
@@ -173,7 +179,7 @@ def yololoss(y_true, y_pred):
 	loss = confidloss+xloss+yloss+wloss+hloss+classesloss
 	#loss = wloss+hloss
 	#
-	return loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, intersection, union,ow,oh,x,y,w,h
+	return loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, intersection, union,ow,oh,x,y,w,h
 	#return loss, ave_cat, ave_obj, ave_anyobj, ave_iou
 
 
@@ -184,13 +190,13 @@ def limit(x):
 
 def regionloss(y_true, y_pred):
 	limited_pred = limit(y_pred)
-	loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
+	loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
 	#return confidloss+xloss+yloss+wloss+hloss
 	return loss
 
 def regionmetrics(y_true, y_pred):
 	limited_pred = limit(y_pred)
-        loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
+        loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
 	pw = K.sum(w)
 	ph = K.sum(h)
 	return {
@@ -204,7 +210,8 @@ def regionmetrics(y_true, y_pred):
 		'ave_cat' : ave_cat,
 		'ave_obj' : ave_obj,
 		'ave_anyobj' : ave_anyobj,
-		'ave_iou' : ave_iou
+		'ave_iou' : ave_iou,
+		'recall' : recall
 		#'predw' : pw,
 		#'predh' : ph,
 		#'ow' : K.sum(ow),
@@ -258,8 +265,8 @@ if DEBUG_loss:
         #pred_w_tf =K.placeholder(ndim=2)
         #pred_h_tf =K.placeholder(ndim=2)
 
-        #ave_iou, intersection, union,ow,oh,x,y,w,h = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
-	#iouf = K.function([truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t], [ave_iou, intersection, union,ow,oh,x,y,w,h])
+        #ave_iou,recall, intersection, union,ow,oh,x,y,w,h = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
+	#iouf = K.function([truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t], [ave_iou,recall, intersection, union,ow,oh,x,y,w,h])
 	# 0.507 0.551051051051 0.39 0.51951951952
 	#np_t = np.zeros((side**2)*2).reshape(2,side**2)
 	#obj_t = np_t >1

@@ -12,6 +12,14 @@ class regionbox():
 	def __init__(self):
 		self
 
+# convert gray to RGB
+def to_rgb2(im):
+    # as 1, but we use broadcasting in one line
+    w, h = im.shape
+    ret = np.empty((w, h, 3), dtype=np.uint8)
+    ret[:, :, :] = im[:, :, np.newaxis]
+    return ret
+
 
 # img value is 0~255
 def random_distort_image(img, contrast=1.0, brightness=1.0):
@@ -29,11 +37,20 @@ def random_distort_image(img, contrast=1.0, brightness=1.0):
 
 def crop_image(img_path, outw, outh):
 	jitter = 0.1
-	img = Image.open(img_path.strip())
+	#img = Image.open(img_path.strip())
 	ckimg = scipy.misc.imread(img_path.strip())
-	(orgh,orgw,c) = ckimg.shape
+	try:
+		(orgh,orgw,c) = ckimg.shape
+		img = Image.open(img_path.strip())
+	except:
+		rgbimg = to_rgb2(ckimg)
+		img = Image.fromarray(rgbimg) # update img obj
+		(orgh,orgw,c) = rgbimg.shape
+		#print 'img shape err='+img_path.strip()+',shape='+str(ckimg.shape)
+		#return -1,-1,-1,-1,-1,-1,-1,-1
 	if c !=3:
-		return -1,-1,-1,-1,-1,-1,-1
+		print 'img shape err='+img_path.strip()+',c='+str(c)
+		return -1,-1,-1,-1,-1,-1,-1,-1
 	#
 	dw = int(orgw * jitter)
 	dh = int(orgh * jitter)
@@ -186,6 +203,9 @@ def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, ba
 		ssy = 1.0
 		if not truthonly:
 			xx,sx,sy,dx,dy,flip,ssx,ssy = crop_image(fn.strip(), w, h)
+			if flip ==-1:  # invalid img
+				batch_count = batch_count -1
+				continue
 			#img = image.load_img( fn.strip(),  target_size=(w, h))
 			#xx = image.img_to_array(img)
 			#xx = randompixel(xx)
