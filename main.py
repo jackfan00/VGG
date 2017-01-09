@@ -225,8 +225,14 @@ elif sys.argv[1]=='train_on_batch':
 
 
 elif sys.argv[1]=='testfile':
+	if len(sys.argv) <5:
+		print 'command is not correct'
+		exit()
 	utils.testfile(model, imglist_path=sys.argv[2], confid_thresh=float(sys.argv[3]), fordebug=True)
 elif sys.argv[1]=='testvideo':
+	if len(sys.argv) <5:
+		print 'command is not correct'
+		exit()
 	utils.testvideo(model, videofile=sys.argv[2], confid_thresh=float(sys.argv[3]))
 else:
 	print 'unsupported command option:'+sys.argv[1]
