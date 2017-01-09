@@ -29337,7 +29337,6 @@
 /home/jack/DataSets/COCO/JPEGImages/355796.jpg
 /home/jack/DataSets/COCO/JPEGImages/104416.jpg
 /home/jack/DataSets/COCO/JPEGImages/277926.jpg
-/home/jack/DataSets/COCO/JPEGImages/coco_trainlist.jpg
 /home/jack/DataSets/COCO/JPEGImages/248194.jpg
 /home/jack/DataSets/COCO/JPEGImages/32678.jpg
 /home/jack/DataSets/COCO/JPEGImages/478962.jpg

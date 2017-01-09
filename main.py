@@ -69,7 +69,7 @@ if len(sys.argv) < 2:
 	exit()
 
 
-nb_epoch =100
+nb_epoch =50
 batch_size =64
 DEBUG_IMG = False
 
@@ -228,3 +228,5 @@ elif sys.argv[1]=='testfile':
 	utils.testfile(model, imglist_path=sys.argv[2], confid_thresh=float(sys.argv[3]), fordebug=True)
 elif sys.argv[1]=='testvideo':
 	utils.testvideo(model, videofile=sys.argv[2], confid_thresh=float(sys.argv[3]))
+else:
+	print 'unsupported command option:'+sys.argv[1]
