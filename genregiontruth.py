@@ -160,16 +160,17 @@ def load_img_paths(train_images):
 	paths = []
 	for l in f:
 		paths.append(l)
+
 	return paths
 
-def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, batch_size=1, train_on_batch=False, randomize=False, seed=0):
+def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, batch_size=1, train_on_batch=False ):
         #if not train_on_batch:
         #        print 'Loading train data:'+train_images+'...'
 
 	# randomize file list
-	if randomize:
-		random.seed(seed) 
-		random.shuffle(paths)
+	#if randomize:
+	#	random.seed(seed) 
+	#	random.shuffle(paths)
 
 
 	bckptsPercell = 5

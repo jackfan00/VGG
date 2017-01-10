@@ -56,7 +56,7 @@ if len(sys.argv)>4 and os.path.isfile(sys.argv[4]):
 	print 'done!'
 
 
-sgd = SGD(lr=0.1, decay=0, momentum=0.9)
+sgd = SGD(lr=0.01, decay=0, momentum=0.9)
 model.compile(optimizer=sgd, loss=detregionloss.regionloss, metrics=[detregionloss.regionmetrics])
 #model.compile(optimizer='rmsprop', loss=detregionloss.regionloss, metrics=[detregionloss.regionmetrics])
 #
@@ -133,6 +133,12 @@ elif sys.argv[1]=='train_on_batch':
 		seed = seed + 1
 		batch_index =0
 		randomize = True  # to make sure same random in 1 epoch, add seed parameter
+		#
+		if randomize:
+			random.seed(seed)
+			random.shuffle(train_img_paths)
+		#
+
 		epoch_loss =0
 		ave_train_result =[]
 		for i in range(len(model.metrics_names)):
@@ -147,7 +153,7 @@ elif sys.argv[1]=='train_on_batch':
 			else:
 				load_numberofsamples = numberofsamples - batch_size*(batch_index-1)
 			#
-			(train_data, train_labels) = genregiontruth.load_data(train_img_paths, 448, 448, 3, numberofsamples=load_numberofsamples, batch_index=batch_index, batch_size=batch_size, train_on_batch=True, randomize=randomize, seed=seed)
+			(train_data, train_labels) = genregiontruth.load_data(train_img_paths, 448, 448, 3, numberofsamples=load_numberofsamples, batch_index=batch_index, batch_size=batch_size, train_on_batch=True )
 			train_result = model.train_on_batch(train_data, train_labels)
 			epoch_loss += train_result[0]
 			#
@@ -193,7 +199,7 @@ elif sys.argv[1]=='train_on_batch':
                         else:
                                 load_numberofsamples = numberofsamples - batch_size*(batch_index-1)
                         #
-                        (test_data, test_labels) = genregiontruth.load_data(val_img_paths, 448, 448, 3, numberofsamples=load_numberofsamples, batch_index=batch_index, batch_size=batch_size, train_on_batch=True, randomize=False, seed=seed)
+                        (test_data, test_labels) = genregiontruth.load_data(val_img_paths, 448, 448, 3, numberofsamples=load_numberofsamples, batch_index=batch_index, batch_size=batch_size, train_on_batch=True )
                         test_result = model.test_on_batch(test_data, test_labels)
                         epoch_testloss += test_result[0]
                         #

@@ -42,7 +42,7 @@ def readlabel(fn):
 		boxlist.append(box)
 	return boxlist
 		
-def load_data(train_images, h, w, c,numberofsamples, truthonly=False, batch_index=0, batch_size=1, train_on_batch=False, randomize=False, seed=0):
+def load_data(train_images, h, w, c,numberofsamples, truthonly=False, batch_index=0, batch_size=1, train_on_batch=False ):
 	if not train_on_batch:
 		print 'Loading train data:'+train_images+'...'
 	f = open(train_images)
