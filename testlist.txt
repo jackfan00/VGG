@@ -1,4 +1,3 @@
-dog.jpg
 /home/jack/DataSets/VOC/VOCdevkit/VOC2007/JPEGImages/000012.jpg
 /home/jack/DataSets/VOC/VOCdevkit/VOC2007/JPEGImages/000017.jpg
 /home/jack/DataSets/VOC/VOCdevkit/VOC2007/JPEGImages/000023.jpg

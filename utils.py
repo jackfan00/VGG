@@ -1,4 +1,5 @@
 import os
+import sys
 import numpy as np
 from PIL import Image, ImageDraw
 import cv2
@@ -82,7 +83,7 @@ def predict(X_test, testmodel, confid_thresh,w,h,c):
 					if k==0:
 						max_confid = max(max_confid,p[k*(side**2)+i*side+j])
 
-					#sys.stdout.write( str(p[k*(side**2)+i*side+j])+', ' )
+					#sys.stdout.write( str(sigmoid(p[k*(side**2)+i*side+j]))+', ' )
 					if k==0 and sigmoid(p[k*(side**2)+i*side+j])>confid_thresh:
 						confid_index_list.append(i*side+j)
 						foundindex = True
@@ -215,7 +216,7 @@ def testfile(testmodel, imglist_path, confid_thresh=0.2, waittime=50000, fordebu
 				#xx = image.img_to_array(timg)
 
 				#
-				fimg, sx, sy, dx, dy, flip,ssx,ssy = genregiontruth.crop_image(img_path.strip(), w, h)
+				fimg, sx, sy, dx, dy, flip,ssx,ssy = genregiontruth.crop_image(img_path.strip(), w, h, randomize=False)
 				if flip == -1:  # not rgb color image
 					continue
 				xx = fimg.copy()

@@ -4,6 +4,7 @@ from keras.applications.vgg16 import preprocess_input
 from keras.models import load_model, Model, Sequential
 from keras.layers import Input, Dense, Activation, Dropout, Flatten
 import numpy as np
+import random
 import genregiontruth
 import detregionloss
 import utils
@@ -43,62 +44,70 @@ def VGGregionModel(inputshape):
 # pretrained
 #model = VGGregionModel((448, 448, 3) )
 
+if len(sys.argv) < 2:
+	print 'Command error --'
+        print 'Usage:: python main.py train [pretrined.h5]'
+        print 'Usage:: python main.py train_on_batch [pretrined.h5]'
+        print 'Usage:: python main.py testfile pretrined.h5 [-thresh 0.6]'
+        print 'Usage:: python main.py testvideo pretrined.h5 [-thresh 0.6]'
+        exit()
+
 #
 model = builtinModel.add_regionDetect(builtinModel.yolotiny_model((448, 448, 3)), (cfgconst.side**2)*(cfgconst.classes+5)*cfgconst.bnum)
 for l in model.layers:
 	print l.name+' '+str(l.input_shape)+' -> '+str(l.output_shape)+', trainable:'+str(l.trainable)
 
 
-if len(sys.argv)>4 and os.path.isfile(sys.argv[4]):
-	print 'Load pretrained model:'+sys.argv[4]+'....'
+if len(sys.argv)>2 and os.path.isfile(sys.argv[2]):
+	print 'Load pretrained model:'+sys.argv[2]+'....'
 	#model=load_model(sys.argv[4], custom_objects={'regionloss': detregionloss.regionloss})
-	model.load_weights(sys.argv[4], by_name=True)
-	print 'done!'
+	model.load_weights(sys.argv[2], by_name=True)
+	print '----load weight done!'
 
 
-sgd = SGD(lr=0.01, decay=0, momentum=0.9)
+sgd = SGD(lr=cfgconst.lr, decay=0, momentum=0.9)
 model.compile(optimizer=sgd, loss=detregionloss.regionloss, metrics=[detregionloss.regionmetrics])
 #model.compile(optimizer='rmsprop', loss=detregionloss.regionloss, metrics=[detregionloss.regionmetrics])
 #
 #
-if len(sys.argv) < 2:
-	print 'Usage:: python main.py train trainlist numberofsamples pretrined.h5 [1/0]'
-	print 'Usage:: python main.py train_on_batch trainlist numberofsamples pretrined.h5'
-	print 'Usage:: python main.py testfile testlist thresh pretrined.h5'
-	print 'Usage:: python main.py testvideo videofile thresh pretrined.h5'
-	exit()
 
+nb_epoch =cfgconst.nb_epoch
+batch_size =cfgconst.batch_size
+DEBUG_IMG = cfgconst.debugimg
 
-nb_epoch =50
-batch_size =64
-DEBUG_IMG = False
-
-history = customcallback.LossHistory(sys.argv[2])
+history = customcallback.LossHistory(imagefordebug=cfgconst.imagefordebugtrain)
 history.setmodel(model)
-adaptive_lr = customcallback.LrReducer(patience=10, reduce_rate=0.5, reduce_nb=3, verbose=1)
+adaptive_lr = customcallback.LrReducer(patience=cfgconst.patience, reduce_rate=cfgconst.lr_reduce_rate, reduce_nb=cfgconst.lr_reduce_nb, verbose=1)
 adaptive_lr.setmodel(model)
 
-if sys.argv[1]=='train':
-	if len(sys.argv)>3:
-		numberofsamples = int(sys.argv[3])
-	else:
-		numberofsamples = 100000  
+thresh_option = 0.6
+for i in range(len(sys.argv)):
+	if sys.argv[i] == '-thresh':
+		thresh_option = float(sys.argv[i+1])
+		break
 
-	train_img_paths = genregiontruth.load_img_paths(sys.argv[2])
-	(train_data, train_labels) = genregiontruth.load_data(train_img_paths, 448, 448, 3, numberofsamples)
-	print 'done!'
+if sys.argv[1]=='train':
+	#if len(sys.argv)>3:
+	#	numberofsamples = int(sys.argv[3])
+	#else:
+	#	numberofsamples = 100000  
+	
+
+	train_img_paths = genregiontruth.load_img_paths(cfgconst.trainset) #sys.argv[2])
+	(train_data, train_labels) = genregiontruth.load_data(train_img_paths, 448, 448, 3, cfgconst.numberof_train_samples, randomize=False)
+	print '----load data done!'
 	#exit()
 
 	numberofsamples = train_labels.shape[0]
 
 
 	#
-	if len(sys.argv)>5:
-		if int(sys.argv[5]) ==1:
-			DEBUG_IMG = True
+	#if len(sys.argv)>5:
+	#	if int(sys.argv[5]) ==1:
+	#		DEBUG_IMG = True
 
-	if DEBUG_IMG:
-		model.fit(train_data[0:numberofsamples], train_labels[0:numberofsamples],nb_epoch=nb_epoch, batch_size=batch_size, callbacks=[adaptive_lr, history] )
+	if DEBUG_IMG==1:
+		model.fit(train_data[0:numberofsamples], train_labels[0:numberofsamples],nb_epoch=nb_epoch, batch_size=batch_size, callbacks=[history] )
 	else:
 		model.fit(train_data[0:numberofsamples], train_labels[0:numberofsamples],nb_epoch=nb_epoch, batch_size=batch_size, callbacks=[adaptive_lr] )
 	#
@@ -111,22 +120,23 @@ if sys.argv[1]=='train':
 	#	if adaptive_lr.istrainstop():
 	#		break
 
-	model.save_weights('vggregion_finetune_weight.h5')
+	#model.save_weights('vggregion_finetune_weight.h5')
 
 # for prevent load all train data once from memory shortage
 elif sys.argv[1]=='train_on_batch':
-	if len(sys.argv)>3:
-                numberofsamples = int(sys.argv[3])
-        else:
-                numberofsamples = 100000
+	#if len(sys.argv)>3:
+        #        numberofsamples = int(sys.argv[3])
+        #else:
+        #        numberofsamples = 100000
+	numberofsamples = cfgconst.numberof_train_samples
 
 	#adaptive_lr = customcallback.LrReducer(patience=10, reduce_rate=0.2, reduce_nb=3, verbose=1)
 	#adaptive_lr.setmodel(model)
 
 	batch_count =0
 	seed = 0
-	train_img_paths = genregiontruth.load_img_paths(sys.argv[2])
-	val_img_paths = genregiontruth.load_img_paths('2007_test.txt')
+	train_img_paths = genregiontruth.load_img_paths(cfgconst.trainset) #sys.argv[2])
+	val_img_paths = genregiontruth.load_img_paths(cfgconst.valset) #'2007_test.txt')
 	#
 	for e in range(nb_epoch):
 		print 'epoch='+str(e+1)+'/'+str(nb_epoch)
@@ -231,14 +241,14 @@ elif sys.argv[1]=='train_on_batch':
 
 
 elif sys.argv[1]=='testfile':
-	if len(sys.argv) <5:
-		print 'command is not correct'
+	if len(sys.argv) <3:
+		print 'testfile command is not correct:: python main.py testfile pretrained.h5 [-thresh 0.6]'
 		exit()
-	utils.testfile(model, imglist_path=sys.argv[2], confid_thresh=float(sys.argv[3]), fordebug=True)
+	utils.testfile(model, imglist_path=cfgconst.testfile, confid_thresh=thresh_option, fordebug=True)
 elif sys.argv[1]=='testvideo':
-	if len(sys.argv) <5:
-		print 'command is not correct'
+	if len(sys.argv) <3:
+		print 'testvideo command is not correct:: python main.py testvideo pretrained.h5 [-thresh 0.6]'
 		exit()
-	utils.testvideo(model, videofile=sys.argv[2], confid_thresh=float(sys.argv[3]))
+	utils.testvideo(model, videofile=cfgconst.videofile, confid_thresh=thresh_option)
 else:
 	print 'unsupported command option:'+sys.argv[1]
