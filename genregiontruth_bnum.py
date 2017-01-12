@@ -1,8 +1,10 @@
-#from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw
+import scipy.misc
+
 import numpy as np
 import sys
 import cfgconst
-from keras.preprocessing import image
+#from keras.preprocessing import image
 from keras.applications.vgg16 import preprocess_input
 import random 
 
@@ -10,20 +12,104 @@ class regionbox():
 	def __init__(self):
 		self
 
-# img value is 0~255
-def randompixel(img, contrast=1.0, brightness=1.0):
-	cr_delta = contrast*(random.random()-0.5)/10.
-	cg_delta = contrast*(random.random()-0.5)/10.
-	cb_delta = contrast*(random.random()-0.5)/10.
-	br_delta = brightness*255*(random.random()-0.5)/10.
-	bg_delta = brightness*255*(random.random()-0.5)/10.
-	bb_delta = brightness*255*(random.random()-0.5)/10.
-	result = img * (1+np.asarray([cr_delta,cg_delta,cb_delta])) + np.asarray([br_delta,bg_delta,bb_delta])
-	result = np.maximum(0., result)
-	result = np.minimum(255., result)
-	return result
+# convert gray to RGB
+def to_rgb2(im):
+    # as 1, but we use broadcasting in one line
+    w, h = im.shape
+    ret = np.empty((w, h, 3), dtype=np.uint8)
+    ret[:, :, :] = im[:, :, np.newaxis]
+    return ret
 
-def readlabel(fn):
+
+# img value is 0~255
+def random_distort_image(img, contrast=1.0, brightness=1.0):
+        cr_delta = contrast*(random.random()-0.5)/10.
+        cg_delta = contrast*(random.random()-0.5)/10.
+        cb_delta = contrast*(random.random()-0.5)/10.
+        br_delta = brightness*255*(random.random()-0.5)/10.
+        bg_delta = brightness*255*(random.random()-0.5)/10.
+        bb_delta = brightness*255*(random.random()-0.5)/10.
+        result = img * (1+np.asarray([cr_delta,cg_delta,cb_delta])) + np.asarray([br_delta,bg_delta,bb_delta])
+        result = np.maximum(0., result)
+        result = np.minimum(255., result)
+        return result
+
+
+def crop_image(img_path, outw, outh, randomize=True):
+	jitter = 0.1
+	#img = Image.open(img_path.strip())
+	ckimg = scipy.misc.imread(img_path.strip())
+	try:
+		(orgh,orgw,c) = ckimg.shape
+		img = Image.open(img_path.strip())
+	except:
+		rgbimg = to_rgb2(ckimg)
+		img = Image.fromarray(rgbimg) # update img obj
+		(orgh,orgw,c) = rgbimg.shape
+		#print 'img shape err='+img_path.strip()+',shape='+str(ckimg.shape)
+		#return -1,-1,-1,-1,-1,-1,-1,-1
+	if c !=3:
+		print 'img shape err='+img_path.strip()+',c='+str(c)
+		return -1,-1,-1,-1,-1,-1,-1,-1
+        #
+        if not randomize:
+                b = img.resize( (outw, outh), Image.BILINEAR )
+                a = np.asarray(b, dtype=np.float32) #
+                return a, 1.0, 1.0, 0., 0., 0, 1.0, 1.0
+
+	#
+	dw = int(orgw * jitter)
+	dh = int(orgh * jitter)
+	pleft = int(np.random.uniform(-dw,dw))
+	pright = int(np.random.uniform(-dw,dw))
+	ptop = int(np.random.uniform(-dh,dh))
+	pbot = int(np.random.uniform(-dh,dh))
+	swidth = orgw - pleft - pright
+	sheight = orgh - ptop - pbot
+	sx = float(swidth) / orgw
+	sy = float(sheight) / orgh
+	dx = float(pleft) / swidth
+	dy = float(ptop) / sheight
+	flip = int(random.random()*2)
+	asratio = int(random.random()*3)
+	#print 'dw='+str(dw)+',dh='+str(dh)+',pleft='+str(pleft)+',pright='+str(pright)+',ptop='+str(ptop)+',pbot='+str(pbot)+',swidth='+str(swidth)+',sheight='+str(sheight)
+	# crop, 0 for ouside image
+	cropped = img.crop((pleft, ptop, orgw-pright, orgh-pbot))
+	#scipy.misc.imsave('debug_cropped.jpg', cropped)
+	# resize
+	ssy =1.0
+	ssx =1.0
+	if asratio>=1:  # maintain aspect ratio
+		r0 = float(outw)/swidth
+		r1 = float(outh)/sheight
+		if asratio==1:
+			r = r1
+			ssx = (r*swidth) / outw
+
+		else:
+			r = r0
+			ssy = (r*sheight) / outh
+		as_resized = cropped.resize( (int(r*swidth), int(r*sheight)), Image.BILINEAR )
+		resized = as_resized.crop( (0,0,outw,outh))
+		#
+	else:
+		resized = cropped.resize( (outw, outh), Image.BILINEAR )
+	#scipy.misc.imsave('debug_resized.jpg', resized)
+	# flip
+	if flip ==1:
+		resized = resized.transpose( Image.FLIP_LEFT_RIGHT )
+		#scipy.misc.imsave('debug_flip.jpg', resized)
+	# disort
+	if int(random.random()*3)>1:
+		disorted = random_distort_image(np.asarray(resized))
+	else:
+		disorted = np.asarray(resized, dtype=np.float32)
+	#scipy.misc.imsave('debug_disorted.jpg', disorted)
+
+	return disorted, sx, sy, dx, dy, flip, ssx, ssy
+
+
+def readlabel(fn, sx, sy, dx, dy, flip, ssx, ssy):
 	#print 'readlabel '+ fn
 	boxlist = []
 	f = open(fn)
@@ -33,27 +119,64 @@ def readlabel(fn):
 			#print ss
 			box = regionbox()
 			box.id = int(ss[0])
-			box.x = float(ss[1]) 
-			box.y = float(ss[2]) 
-			box.w = float(ss[3]) 
-			box.h = float(ss[4]) 
+			box.orgx = float(ss[1]) 
+			box.orgy = float(ss[2]) 
+			box.orgw = float(ss[3]) 
+			box.orgh = float(ss[4]) 
+			#
+			# ignore small block
+			if box.orgw < 0.05 or box.orgh < 0.05:
+				continue
+			#
+			box.x = (box.orgx / sx - dx) * ssx
+			if flip ==1:
+				box.x = 1.0 - box.x
+			box.y = (box.orgy / sy - dy) * ssy
+			box.w = (box.orgw / sx) * ssx 
+			box.h = (box.orgh / sy) * ssy 
+			#print 'sx='+str(sx)+',sy='+str(sy)+',dx='+str(dx)+',dy='+str(dy)+',flip='+str(flip)
+                        #print 'box.orgx='+str(box.orgx)+',box.orgy='+str(box.orgy)+',box.orgw='+str(box.orgw)+',box.orgh='+str(box.orgh)
+                        #print 'box.x='+str(box.x)+',box.y='+str(box.y)+',box.w='+str(box.w)+',box.h='+str(box.h)
+			# consider out of image
+			left = max(0.001,box.x - box.w/2.0)
+			right = min(0.999,box.x + box.w/2.0)
+			top = max(0.001,box.y - box.h/2.0)
+			bot = min(0.999,box.y + box.h/2.0)
+
+			box.x = (left+right)/2.0 
+                        box.y = (top+bot)/2.0 
+                        box.w = right-left 
+                        box.h = bot - top 
+
+			# constraint
+			box.x = min(0.999, max(0.001, box.x))
+			box.y = min(0.999, max(0.001, box.y))
+			box.w = min(0.999, max(0.001, box.w))
+			box.h = min(0.999, max(0.001, box.h))
+			#print 'sx='+str(sx)+',sy='+str(sy)+',dx='+str(dx)+',dy='+str(dy)+',flip='+str(flip)
+			#print 'box.orgx='+str(box.orgx)+',box.orgy='+str(box.orgy)+',box.orgw='+str(box.orgw)+',box.orgh='+str(box.orgh)
+			#print 'box.x='+str(box.x)+',box.y='+str(box.y)+',box.w='+str(box.w)+',box.h='+str(box.h)
 		except:
 			box.id = -1
 		boxlist.append(box)
 	return boxlist
 		
-def load_data(train_images, h, w, c,numberofsamples, truthonly=False, batch_index=0, batch_size=1, train_on_batch=False ):
-	if not train_on_batch:
-		print 'Loading train data:'+train_images+'...'
+def load_img_paths(train_images):
 	f = open(train_images)
 	paths = []
 	for l in f:
 		paths.append(l)
 
+	return paths
+
+def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, batch_size=1, train_on_batch=False,randomize=True ):
+        #if not train_on_batch:
+        #        print 'Loading train data:'+train_images+'...'
+
 	# randomize file list
-	if randomize:
-		random.seed(seed) 
-		random.shuffle(paths)
+	#if randomize:
+	#	random.seed(seed) 
+	#	random.shuffle(paths)
 
 
 	bckptsPercell = 5
@@ -78,12 +201,23 @@ def load_data(train_images, h, w, c,numberofsamples, truthonly=False, batch_inde
 				batch_count = batch_count+1
 
 		#print 'load_data fn:'+fn
+		sx =1.0
+		sy =1.0
+		dx =0.0
+		dy =0.0
+		flip =0
+		ssx = 1.0
+		ssy = 1.0
 		if not truthonly:
-			img = image.load_img( fn.strip(),  target_size=(w, h))
-			xx = image.img_to_array(img)
-			xx = randompixel(xx)
+			xx,sx,sy,dx,dy,flip,ssx,ssy = crop_image(fn.strip(), w, h, randomize=randomize)
+			if flip ==-1:  # invalid img
+				batch_count = batch_count -1
+				continue
+			#img = image.load_img( fn.strip(),  target_size=(w, h))
+			#xx = image.img_to_array(img)
+			#xx = randompixel(xx)
 			#xx = preprocess_input(xx)
-			#(orgw,orgh) = img.size
+			#(orgh,orgw) = img.size
 			#nim = img.resize( (w, h), Image.BILINEAR )
 			#data = np.asarray( nim )
 			#if data.shape != (w, h, c):
@@ -100,7 +234,7 @@ def load_data(train_images, h, w, c,numberofsamples, truthonly=False, batch_inde
 
 		#
 		# may have multi bounding box for 1 image
-		boxlist = readlabel(fn.strip())
+		boxlist = readlabel(fn.strip(), sx,sy,dx,dy,flip,ssx,ssy)
 		
 		truth = np.zeros(side**2*(bckptsPercell+classes)*bnumPercell)
 		for box in boxlist:
@@ -113,21 +247,28 @@ def load_data(train_images, h, w, c,numberofsamples, truthonly=False, batch_inde
 			# let truth size == pred size, different from yolo.c 
 			# trurh data arrangement is (confid,x,y,w,h)(..)(classes)
 			#
+			#truth = np.zeros(side**2*(bckptsPercell*bnumPercell+classes))
 			col = int(box.x * side)
 			row = int(box.y * side)
 			x = box.x * side - col
 			y = box.y * side - row
 
-			# support bnum box for 1 cell
-			#
+			# only 1 box for 1 cell
 			index = (col+row*side)
-			for i in range(bnumPercell):
-				truth[index+i*(side**2)] = 1
-				truth[1*(side**2)*bnum+index+i*(side**2)] = x
-				truth[2*(side**2)*bnum+index+i*(side**2)] = y
-				truth[3*(side**2)*bnum+index+i*(side**2)] = box.w
-				truth[4*(side**2)*bnum+index+i*(side**2)] = box.h
-				truth[(5+box.id)*(side**2)*bnum+index+i*(side**2)] =1
+			#for i in range(bnumPercell):
+			# 1 bbox detector respnsible for small size bbox, the other for big size bbox
+			if box.w*box.h < 0.25:
+				i=0
+			else:
+				i=1
+			#
+			truth[index+i*(side**2)] = 1
+			truth[1*(side**2)*bnumPercell+index+i*(side**2)] = x
+			truth[2*(side**2)*bnumPercell+index+i*(side**2)] = y
+			truth[3*(side**2)*bnumPercell+index+i*(side**2)] = box.w
+			truth[4*(side**2)*bnumPercell+index+i*(side**2)] = box.h
+			#print 'index='+str(index)+' '+str(box.x)+' '+str(box.y)+' '+str(box.w)+' '+str(box.h)
+			truth[(5+box.id)*(side**2)*bnumPercell+index+i*(side**2)] =1
 
 		#exit()
 		#

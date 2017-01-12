@@ -35,7 +35,8 @@ def random_distort_image(img, contrast=1.0, brightness=1.0):
         return result
 
 
-def crop_image(img_path, outw, outh):
+def crop_image(img_path, outw, outh, randomize=True):
+
 	jitter = 0.1
 	#img = Image.open(img_path.strip())
 	ckimg = scipy.misc.imread(img_path.strip())
@@ -51,6 +52,12 @@ def crop_image(img_path, outw, outh):
 	if c !=3:
 		print 'img shape err='+img_path.strip()+',c='+str(c)
 		return -1,-1,-1,-1,-1,-1,-1,-1
+	#
+	if not randomize:
+		b = img.resize( (outw, outh), Image.BILINEAR )
+		a = np.asarray(b, dtype=np.float32) # 
+                return a, 1.0, 1.0, 0., 0., 0, 1.0, 1.0
+
 	#
 	dw = int(orgw * jitter)
 	dh = int(orgh * jitter)
@@ -163,7 +170,7 @@ def load_img_paths(train_images):
 
 	return paths
 
-def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, batch_size=1, train_on_batch=False ):
+def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, batch_size=1, train_on_batch=False,randomize=True ):
         #if not train_on_batch:
         #        print 'Loading train data:'+train_images+'...'
 
@@ -203,7 +210,7 @@ def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, ba
 		ssx = 1.0
 		ssy = 1.0
 		if not truthonly:
-			xx,sx,sy,dx,dy,flip,ssx,ssy = crop_image(fn.strip(), w, h)
+			xx,sx,sy,dx,dy,flip,ssx,ssy = crop_image(fn.strip(), w, h, randomize=randomize)
 			if flip ==-1:  # invalid img
 				batch_count = batch_count -1
 				continue

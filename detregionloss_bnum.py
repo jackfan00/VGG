@@ -16,12 +16,13 @@ reguralar_wh = 0
 lamda_class = cfgconst.class_scale
 classes = cfgconst.classes
 
-DEBUG_loss = True
+DEBUG_loss = False
 
 # shape is (gridcells,)
 def yoloconfidloss(y_true, y_pred, t):
+	real_y_true = tf.select(t, y_true, K.zeros_like(y_true))
 	pobj = K.sigmoid(y_pred)
-	lo = K.square(y_true-pobj)
+	lo = K.square(real_y_true-pobj)
 	value_if_true = lamda_confid_obj*(lo)
 	value_if_false = lamda_confid_noobj*(lo)
 	loss1 = tf.select(t, value_if_true, value_if_false)
@@ -35,27 +36,32 @@ def yoloconfidloss(y_true, y_pred, t):
 
 # shape is (gridcells*2,)
 def yoloxyloss(y_true, y_pred, t):
-        lo = K.square(y_true-K.sigmoid(y_pred))
+	real_y_true = tf.select(t, y_true, K.zeros_like(y_true))
+        lo = K.square(real_y_true-K.sigmoid(y_pred))
         value_if_true = lamda_xy*(lo)
         value_if_false = K.zeros_like(y_true)
         loss1 = tf.select(t, value_if_true, value_if_false)
+	#return K.mean(value_if_true)
 	return K.mean(loss1)
 
 # different with YOLO
 # shape is (gridcells*2,)
 def yolowhloss(y_true, y_pred, t):
-        lo = K.square(y_true-K.sigmoid(y_pred))
+	real_y_true = tf.select(t, y_true, K.zeros_like(y_true))
+        lo = K.square(real_y_true-K.sigmoid(y_pred))
 	# let w,h not too small or large
         #lo = K.square(y_true-y_pred)+reguralar_wh*K.square(0.5-y_pred)
         value_if_true = lamda_wh*(lo)
         value_if_false = K.zeros_like(y_true)
         loss1 = tf.select(t, value_if_true, value_if_false)
 	#return K.mean(loss1/(y_true+0.000000001))
+	#return K.mean(value_if_true)
 	return K.mean(loss1)
 
 # shape is (gridcells*classes,)
 def yoloclassloss(y_true, y_pred, t):
-        lo = K.square(y_true-y_pred)
+	real_y_true = tf.select(t, y_true, K.zeros_like(y_true))
+        lo = K.square(real_y_true-y_pred)
         value_if_true = lamda_class*(lo)
         value_if_false = K.zeros_like(y_true)
         loss1 = tf.select(t, value_if_true, value_if_false)
@@ -127,14 +133,14 @@ def iou(x_true,y_true,w_true,h_true,x_pred,y_pred,w_pred,h_pred,t):
 	#recall_count = K.sum(tf.select(recall_t, K.ones_like(recall_iou), K.zeros_like(recall_iou)))
 	#
 	#iou = K.sum(intersection / union, axis=1)
-	obj_count = K.sum(tf.select(t, K.ones_like(x_true), K.zeros_like(x_true)), axis=1)
+	obj_count = K.sum(tf.select(t, K.ones_like(x_true), K.zeros_like(x_true)))
 	#
 	#ave_iou = K.sum(iou) / K.sum(obj_count)
-	ave_iou = K.sum(bestiou) / (K.sum(obj_count) / bnum)
-	#recall = recall_count / K.sum(obj_count)
-	recall = recall_count / (K.sum(obj_count) / bnum)
-	#return ave_iou, recall, bestiou_flag, intersection, union,ow,oh,x,y,w,h
-	return obj_count, ave_iou, bestiou 
+	ave_iou = K.sum(bestiou) / ((obj_count)) # / bnum)
+	#recall = recall_count / (obj_count)
+	recall = recall_count / ((obj_count)) # / bnum)
+	return ave_iou, recall, bestiou_flag,obj_count, intersection, union,ow,oh,x,y,w,h
+	#return obj_count, ave_iou, bestiou 
 
 # shape is (gridcells*(5+classes), )
 def yololoss(y_true, y_pred):
@@ -185,10 +191,12 @@ def yololoss(y_true, y_pred):
 		pred_classes_tf.append(ctf)
 
 	t = K.greater(truth_confid_tf, 0.5) 
-	ave_iou, recall, bestiou_flag, intersection, union,ow,oh,x,y,w,h = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
+	ave_iou, recall, bestiou_flag,obj_count, intersection, union,ow,oh,x,y,w,h = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
 
 	# constraint bestiou
-        t = tf.logical_and(t, bestiou_flag)
+        #t = tf.logical_and(t, bestiou_flag)
+
+	#bestiou_truth_confid_tf = tf.select(t, truth_confid_tf, K.zeros_like(truth_confid_tf))
 
 	confidloss, ave_anyobj, ave_obj = yoloconfidloss(truth_confid_tf, pred_confid_tf, t)
 	xloss = yoloxyloss(truth_x_tf, pred_x_tf, t)
@@ -198,22 +206,25 @@ def yololoss(y_true, y_pred):
 
 
 	classesloss =0
-	ave_cat =0
+	ave_cat =0.
+	count =0.
 	closslist = []
 	catlist = []
 	for i in range(classes):
 		closs, cat = yoloclassloss(truth_classes_tf[i], pred_classes_tf[i], t)
-		closslist.append(closs)
-		catlist.append(cat)
+		#closslist.append(closs)
+		#catlist.append(cat)
 		classesloss += closs
-		ave_cat = tf.select(K.greater(cat ,0), (ave_cat+cat)/2 , ave_cat) 
+		ave_cat = tf.select(K.greater(cat ,0), (ave_cat+cat) , ave_cat) 
+		count = tf.select(K.greater(cat ,0), (count+1.) , count)
+	ave_cat = ave_cat / count
 
 	#return classesloss, ave_cat
 
 	loss = confidloss+xloss+yloss+wloss+hloss+classesloss
 	#loss = wloss+hloss
 	#
-	return loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, bestiou_flag, intersection, union,ow,oh,x,y,w,h
+	return loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, bestiou_flag,obj_count, intersection, union,ow,oh,x,y,w,h
 	#return loss, ave_cat, ave_obj, ave_anyobj, ave_iou
 
 
@@ -224,13 +235,13 @@ def limit(x):
 
 def regionloss(y_true, y_pred):
 	limited_pred = limit(y_pred)
-	loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, bestiou_flag, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
+	loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, bestiou_flag,obj_count, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
 	#return confidloss+xloss+yloss+wloss+hloss
 	return loss
 
 def regionmetrics(y_true, y_pred):
 	limited_pred = limit(y_pred)
-        loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, bestiou_flag, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
+        loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, bestiou_flag,obj_count, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
 	pw = K.sum(w)
 	ph = K.sum(h)
 	return {
@@ -245,7 +256,8 @@ def regionmetrics(y_true, y_pred):
 		'ave_obj' : ave_obj,
 		'ave_anyobj' : ave_anyobj,
 		'ave_iou' : ave_iou,
-		'recall' : recall
+		'recall' : recall,
+		'obj_count' : obj_count
 		#'predw' : pw,
 		#'predh' : ph,
 		#'ow' : K.sum(ow),

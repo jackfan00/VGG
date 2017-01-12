@@ -5,8 +5,8 @@ from keras.models import load_model, Model, Sequential
 from keras.layers import Input, Dense, Activation, Dropout, Flatten
 import numpy as np
 import random
-import genregiontruth
-import detregionloss
+import genregiontruth_bnum
+import detregionloss_bnum
 import utils
 import sys
 import os
@@ -60,31 +60,32 @@ for l in model.layers:
 
 if len(sys.argv)>2 and os.path.isfile(sys.argv[2]):
 	print 'Load pretrained model:'+sys.argv[2]+'....'
-	#model=load_model(sys.argv[4], custom_objects={'regionloss': detregionloss.regionloss})
+	#model=load_model(sys.argv[4], custom_objects={'regionloss': detregionloss_bnum.regionloss})
 	model.load_weights(sys.argv[2], by_name=True)
 	print '----load weight done!'
 
 
 sgd = SGD(lr=cfgconst.lr, decay=0, momentum=0.9)
-model.compile(optimizer=sgd, loss=detregionloss.regionloss, metrics=[detregionloss.regionmetrics])
-#model.compile(optimizer='rmsprop', loss=detregionloss.regionloss, metrics=[detregionloss.regionmetrics])
+model.compile(optimizer=sgd, loss=detregionloss_bnum.regionloss, metrics=[detregionloss_bnum.regionmetrics])
+#model.compile(optimizer='rmsprop', loss=detregionloss_bnum.regionloss, metrics=[detregionloss_bnum.regionmetrics])
 #
 #
 
+thresh_option = 0.6
+for i in range(len(sys.argv)):
+        if sys.argv[i] == '-thresh':
+                thresh_option = float(sys.argv[i+1])
+                break
+#
 nb_epoch =cfgconst.nb_epoch
 batch_size =cfgconst.batch_size
 DEBUG_IMG = cfgconst.debugimg
 
-history = customcallback.LossHistory(imagefordebug=cfgconst.imagefordebugtrain)
+history = customcallback.LossHistory(imagefordebug=cfgconst.imagefordebugtrain, thresh_option=thresh_option)
 history.setmodel(model)
 adaptive_lr = customcallback.LrReducer(patience=cfgconst.patience, reduce_rate=cfgconst.lr_reduce_rate, reduce_nb=cfgconst.lr_reduce_nb, verbose=1)
 adaptive_lr.setmodel(model)
 
-thresh_option = 0.6
-for i in range(len(sys.argv)):
-	if sys.argv[i] == '-thresh':
-		thresh_option = float(sys.argv[i+1])
-		break
 
 if sys.argv[1]=='train':
 	#if len(sys.argv)>3:
@@ -93,8 +94,8 @@ if sys.argv[1]=='train':
 	#	numberofsamples = 100000  
 	
 
-	train_img_paths = genregiontruth.load_img_paths(cfgconst.trainset) #sys.argv[2])
-	(train_data, train_labels) = genregiontruth.load_data(train_img_paths, 448, 448, 3, cfgconst.numberof_train_samples, randomize=False)
+	train_img_paths = genregiontruth_bnum.load_img_paths(cfgconst.trainset) #sys.argv[2])
+	(train_data, train_labels) = genregiontruth_bnum.load_data(train_img_paths, 448, 448, 3, cfgconst.numberof_train_samples, randomize=False)
 	print '----load data done!'
 	#exit()
 
@@ -112,7 +113,7 @@ if sys.argv[1]=='train':
 		model.fit(train_data[0:numberofsamples], train_labels[0:numberofsamples],nb_epoch=nb_epoch, batch_size=batch_size, callbacks=[adaptive_lr] )
 	#
 	#for e in range(nb_epoch):
-	#	ran_train_data = genregiontruth.randompixel(train_data)
+	#	ran_train_data = genregiontruth_bnum.randompixel(train_data)
 	#	if DEBUG_IMG:
 	#		model.fit(ran_train_data[0:numberofsamples], train_labels[0:numberofsamples],nb_epoch=1, batch_size=batch_size, callbacks=[history, adaptive_lr])
 	#	else:
@@ -135,8 +136,8 @@ elif sys.argv[1]=='train_on_batch':
 
 	batch_count =0
 	seed = 0
-	train_img_paths = genregiontruth.load_img_paths(cfgconst.trainset) #sys.argv[2])
-	val_img_paths = genregiontruth.load_img_paths(cfgconst.valset) #'2007_test.txt')
+	train_img_paths = genregiontruth_bnum.load_img_paths(cfgconst.trainset) #sys.argv[2])
+	val_img_paths = genregiontruth_bnum.load_img_paths(cfgconst.valset) #'2007_test.txt')
 	#
 	for e in range(nb_epoch):
 		print 'epoch='+str(e+1)+'/'+str(nb_epoch)
@@ -163,7 +164,7 @@ elif sys.argv[1]=='train_on_batch':
 			else:
 				load_numberofsamples = numberofsamples - batch_size*(batch_index-1)
 			#
-			(train_data, train_labels) = genregiontruth.load_data(train_img_paths, 448, 448, 3, numberofsamples=load_numberofsamples, batch_index=batch_index, batch_size=batch_size, train_on_batch=True )
+			(train_data, train_labels) = genregiontruth_bnum.load_data(train_img_paths, 448, 448, 3, numberofsamples=load_numberofsamples, batch_index=batch_index, batch_size=batch_size, train_on_batch=True )
 			train_result = model.train_on_batch(train_data, train_labels)
 			epoch_loss += train_result[0]
 			#
@@ -209,7 +210,7 @@ elif sys.argv[1]=='train_on_batch':
                         else:
                                 load_numberofsamples = numberofsamples - batch_size*(batch_index-1)
                         #
-                        (test_data, test_labels) = genregiontruth.load_data(val_img_paths, 448, 448, 3, numberofsamples=load_numberofsamples, batch_index=batch_index, batch_size=batch_size, train_on_batch=True )
+                        (test_data, test_labels) = genregiontruth_bnum.load_data(val_img_paths, 448, 448, 3, numberofsamples=load_numberofsamples, batch_index=batch_index, batch_size=batch_size, train_on_batch=True )
                         test_result = model.test_on_batch(test_data, test_labels)
                         epoch_testloss += test_result[0]
                         #
