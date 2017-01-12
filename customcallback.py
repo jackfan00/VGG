@@ -9,8 +9,9 @@ from keras import backend as K
 
 
 class LossHistory(keras.callbacks.Callback):
-	def __init__(self, imagefordebug):
+	def __init__(self, imagefordebug, thresh_option):
 		self.imagefordebug = imagefordebug
+		self.thresh_option = thresh_option
 
 	def setmodel(self, model):
                 self.model = model
@@ -22,7 +23,7 @@ class LossHistory(keras.callbacks.Callback):
 		#print 'on_batch_end: batch='+str(batch)
 		#self.losses.append(logs.get('loss'))
 		if (batch%20) == 0:
-			utils.testfile(self.model, self.imagefordebug, waittime=100, confid_thresh=0.2, fordebug=True)
+			utils.testfile(self.model, self.imagefordebug, waittime=100, confid_thresh=self.thresh_option, fordebug=True)
 
 	def on_epoch_end(self, epoch, logs={}):
 		self

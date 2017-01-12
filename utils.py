@@ -6,7 +6,7 @@ import cv2
 import scipy.misc
 import cfgconst
 import math
-import genregiontruth
+import genregiontruth_bnum
 from keras.preprocessing import image
 from keras.applications.vgg16 import preprocess_input
 
@@ -68,6 +68,7 @@ def predict(X_test, testmodel, confid_thresh,w,h,c):
 	y0_list = []
 	y1_list = []
 	#
+	bnum = cfgconst.bnum
         side = cfgconst.side
 	classes = cfgconst.classes
 	xtext_index =0
@@ -76,34 +77,35 @@ def predict(X_test, testmodel, confid_thresh,w,h,c):
 	#
 	for p in pred:
 		#foundindex = False
-		for k in range(1): #5+classes):
+		for k in range(bnum): #5+classes):
 			#print 'L'+str(k)
 			for i in range(side):
 				for j in range(side):
-					if k==0:
-						max_confid = max(max_confid,p[k*(side**2)+i*side+j])
+					#if k==0:
+					max_confid = max(max_confid,p[k*(side**2)+i*side+j])
 
 					#sys.stdout.write( str(sigmoid(p[k*(side**2)+i*side+j]))+', ' )
-					if k==0 and sigmoid(p[k*(side**2)+i*side+j])>confid_thresh:
-						confid_index_list.append(i*side+j)
+					#if k==0 and sigmoid(p[k*(side**2)+i*side+j])>confid_thresh:
+					if sigmoid(p[k*(side**2)+i*side+j])>confid_thresh:
+						confid_index_list.append(k*(side**2)+i*side+j)
 						foundindex = True
 				#print '-'
 		#print 'max_confid='+str(max_confid)
 		#
 		for confid_index in confid_index_list:
-			confid_value = max(0,sigmoid(limit(p[0*(side**2)+confid_index])))
+			confid_value = max(0,sigmoid(limit(p[0*(side**2)*bnum+confid_index])))
 			confid_value_list.append(confid_value)
 
-			x_value = max(0,sigmoid(limit(p[1*(side**2)+confid_index])))
-			y_value = max(0,sigmoid(limit(p[2*(side**2)+confid_index])))
-			w_value = max(0,sigmoid(limit(p[3*(side**2)+confid_index])))
-			h_value = max(0,sigmoid(limit(p[4*(side**2)+confid_index])))
+			x_value = max(0,sigmoid(limit(p[1*(side**2)*bnum+confid_index])))
+			y_value = max(0,sigmoid(limit(p[2*(side**2)*bnum+confid_index])))
+			w_value = max(0,sigmoid(limit(p[3*(side**2)*bnum+confid_index])))
+			h_value = max(0,sigmoid(limit(p[4*(side**2)*bnum+confid_index])))
 			#print 'x_value='+str(x_value)+',y_value='+str(y_value)+',w_value='+str(w_value)+',h_value='+str(h_value)
 			maxclassprob = 0
 			maxclassprob_i =-1
 			for i in range(classes):
-				if p[(5+i)*(side**2)+confid_index] > maxclassprob and foundindex:
-					maxclassprob = p[(5+i)*(side**2)+confid_index]
+				if p[(5+i)*(side**2)*bnum+confid_index] > maxclassprob and foundindex:
+					maxclassprob = p[(5+i)*(side**2)*bnum+confid_index]
 					maxclassprob_i = i
 
 			classprob_list.append( sigmoid(maxclassprob))
@@ -111,8 +113,9 @@ def predict(X_test, testmodel, confid_thresh,w,h,c):
 
 			#print 'max_confid='+str(max_confid)+',c='+str(confid_value)+',x='+str(x_value)+',y='+str(y_value)+',w='+str(w_value)+',h='+str(h_value)+',cid='+str(maxclassprob_i)+',prob='+str(maxclassprob)
 		#
-			row = confid_index / side
-			col = confid_index % side
+			# in case confid_index at 2nd,3rd,4th... bbox
+			row = (confid_index % (side**2)) / side
+			col = (confid_index % (side**2)) % side
 			x = (w / side) * (col + x_value)
 			y = (h / side) * (row + y_value)
 
@@ -201,7 +204,7 @@ def testfile(testmodel, imglist_path, confid_thresh=0.2, waittime=50000, fordebu
 			#if fordebug:  # read label
 			#	fn=img_path.replace("/JPEGImages/","/labels/")
 			#	fn=fn.replace(".jpg",".txt")              #VOC
-			#	boxlist = genregiontruth.readlabel(fn.strip())
+			#	boxlist = genregiontruth_bnum.readlabel(fn.strip())
 
         		#X_test = []
         		if os.path.isfile(img_path.strip()):
@@ -216,7 +219,7 @@ def testfile(testmodel, imglist_path, confid_thresh=0.2, waittime=50000, fordebu
 				#xx = image.img_to_array(timg)
 
 				#
-				fimg, sx, sy, dx, dy, flip,ssx,ssy = genregiontruth.crop_image(img_path.strip(), w, h, randomize=False)
+				fimg, sx, sy, dx, dy, flip,ssx,ssy = genregiontruth_bnum.crop_image(img_path.strip(), w, h, randomize=False)
 				if flip == -1:  # not rgb color image
 					continue
 				xx = fimg.copy()
@@ -224,7 +227,7 @@ def testfile(testmodel, imglist_path, confid_thresh=0.2, waittime=50000, fordebu
 				if fordebug:  # read label
 					fn=img_path.replace("/JPEGImages/","/labels/")
 					fn=fn.replace(".jpg",".txt")              #VOC
-					boxlist = genregiontruth.readlabel(fn.strip(), sx, sy, dx, dy, flip, ssx, ssy)
+					boxlist = genregiontruth_bnum.readlabel(fn.strip(), sx, sy, dx, dy, flip, ssx, ssy)
 
 				#print 'img='+str(img.shape)+str(img[0][0])
 
