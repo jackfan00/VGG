@@ -1,9 +1,9 @@
-# Object Detection Neuron Network
+# YOLO1 Keras Model
 
 Introduction
 ---------------------------------------------------------------------------------------------------
 
-This is a Keras implementation of Object Detection Neuron Network. 
+This is a Keras implementation of YOLO1 neuron network. 
 
     YOLO Real-Time Object Detection : YOLO paper please reference to http://pjreddie.com/darknet/yolo/
 
@@ -13,32 +13,29 @@ Usage
 
 Training and Debuging (need Python-OPENCV)
 
-    Python main.py train trainlist.txt [numberOfSmaples] [pretrained_Keras_model.h5] [Debug]
+    Python main.py train [pretrained_Keras_model.h5]
     
     It will read-in all training images, so it maybe probably out of memory if trainSets is too large.
     
-    "numberOfSmaples" can be specified to avoid this kind of problem. If not specify "numberOfSmaples"
-    or "numberOfSmaples" greater than trainsets, it read-in all trainsets.
-    
-    Option "Debug" equal 1 will show image (which specified by numberOfSmaples.txt) with predicted bbox 
-    on the screen when training, it can help to give a feeling about training process.
     
 Train_on_batch
 
-    Python main.py train_on_batch trainlist.txt [numberOfSmaples] [pretrained_Keras_model.h5]
+    Python main.py train_on_batch [pretrained_Keras_model.h5]
     
     It will only read-in 1 batch images for each training, so there is no out of memory issue. But may take
     longer time to train because of it read image from disk for every batch.
     
+    
 TestFile (need Python-OPENCV)
 
-    Python main.py testfile testlist.txt thresh pretrained_Keras_model.h5
+    Python main.py testfile pretrained_Keras_model.h5 [-thresh 0.6]
     
     It will show images with predicted bbox on the screen
 
+
 TestVideo (need Python-OPENCV)
 
-    Python main.py testvideo videofile thresh pretrained_Keras_model.h5
+    Python main.py testvideo pretrained_Keras_model.h5 [-thresh 0.6]
     
     It will show video with predicted bbox on the screen
     
@@ -46,17 +43,17 @@ TestVideo (need Python-OPENCV)
 Code explanation
 ---------------------------------------------------------------------------------------------
 
-    main.py: entry point
+    main_bnum.py: entry point
     
-    genregiontruth.py: prepare truth and train data
+    genregiontruth_bnum.py: prepare truth and train data
     
-    detregionloss.py: loss function
+    detregionloss_bnum.py: loss function
     
     builtinModel.py: define object detection neueon network structure
     
     imagefordebug.txt: image for train debug use case
     
-    detregion.cfg: detection parameter
+    detregion.cfg: parameter setting file
 
 
 How to Training
