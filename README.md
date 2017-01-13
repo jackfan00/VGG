@@ -79,6 +79,8 @@ Running enviroment
 --------------------------------------------------------------------------------------------
 
 Tools :
+
+    Ubuntu 16.04 LTS 64-bit, Python 2.7.12
   
     Keras with tensorflow backend : Neoron Network training
 
