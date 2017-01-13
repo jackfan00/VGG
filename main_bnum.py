@@ -15,6 +15,8 @@ from keras.callbacks import ModelCheckpoint
 from keras.optimizers import SGD
 import cfgconst
 import builtinModel
+import statusSever_socket
+import SocketServer
 
 def VGGregionModel(inputshape):
 	input_tensor = Input(shape=inputshape) #(448, 448, 3))
@@ -251,5 +253,16 @@ elif sys.argv[1]=='testvideo':
 		print 'testvideo command is not correct:: python main.py testvideo pretrained.h5 [-thresh 0.6]'
 		exit()
 	utils.testvideo(model, videofile=cfgconst.videofile, confid_thresh=thresh_option)
+elif sys.argv[1]=='testsocketvideo':
+	if len(sys.argv) <3:
+                print 'testvideo command is not correct:: python main.py testsocketvideo pretrained.h5 [-thresh 0.6]'
+                exit()
+
+	MyTCPHandler = statusSever_socket.MyTCPHandler
+	MyTCPHandler.testmodel = model
+	MyTCPHandler.confid_thresh = thresh_option
+	HOST, PORT = "localhost", 9999
+	server = SocketServer.TCPServer((HOST, PORT), MyTCPHandler)
+	server.serve_forever()
 else:
 	print 'unsupported command option:'+sys.argv[1]
