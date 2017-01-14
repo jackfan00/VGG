@@ -29,13 +29,13 @@ def sendimg(sock, data):
 		my_bytes.append(data[i])
 	sock.sendall(my_bytes)
 	received = sock.recv(1024)
-	print 'sendmsg received:'+received
+	#print 'sendmsg received:'+received
 
 
 def imagefromlist(testlist):
 	sock.sendall('(448, 448, 3)')
 	received = sock.recv(1024)
-	print received
+	#print received
 	#
 	f = open(testlist)
 	for img_path in f:
@@ -43,7 +43,7 @@ def imagefromlist(testlist):
 		xx = image.img_to_array(timg)
 		try:
 			(orgh,orgw,c) = xx.shape
-			print xx.shape
+			#print xx.shape
 			data = xx.reshape(448*448*3).astype(np.uint8)
 			sendimg(sock, data)
 			time.sleep(3)
@@ -57,9 +57,9 @@ def imagefromvideo(videofile):
 	cap = cv2.VideoCapture(videofile)
 	ret, frame = cap.read()
 	if ret:
-		(w, h, c) = frame.shape
+		(h, w, c) = frame.shape
 		print frame.shape
-		sock.sendall(str(frame.shape))
+		sock.sendall('('+str(h)+','+str(w)+','+str(c)+')')
 		received = sock.recv(1024)
 	else:
 		print videofile+' open fail'

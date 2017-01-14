@@ -125,7 +125,7 @@ class MyTCPHandler(SocketServer.BaseRequestHandler):
 			#scipy.misc.imsave('outfile.jpg', image_array)
 			#cv2.imshow('frame',image_array)
 			#cv2.waitKey(1) 
-			self.drawbbox(img, xx, MyTCPHandler.testmodel, MyTCPHandler.confid_thresh, w, h, c)
+			self.drawbbox(img, xx, MyTCPHandler.testmodel, MyTCPHandler.confid_thresh, 448, 448, 3)
 			imgdata =[]
 		
     #def initpara(self, testmodel, confid_thresh):

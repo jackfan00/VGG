@@ -15,6 +15,9 @@ from keras.callbacks import ModelCheckpoint
 from keras.optimizers import SGD
 import cfgconst
 import builtinModel
+import statusSever_socket
+import SocketServer
+
 
 def VGGregionModel(inputshape):
 	input_tensor = Input(shape=inputshape) #(448, 448, 3))
@@ -71,20 +74,22 @@ model.compile(optimizer=sgd, loss=detregionloss.regionloss, metrics=[detregionlo
 #
 #
 
+thresh_option = 0.6
+for i in range(len(sys.argv)):
+        if sys.argv[i] == '-thresh':
+                thresh_option = float(sys.argv[i+1])
+                break
+#
+
 nb_epoch =cfgconst.nb_epoch
 batch_size =cfgconst.batch_size
 DEBUG_IMG = cfgconst.debugimg
 
-history = customcallback.LossHistory(imagefordebug=cfgconst.imagefordebugtrain)
+history = customcallback.LossHistory(imagefordebug=cfgconst.imagefordebugtrain, thresh_option=thresh_option)
 history.setmodel(model)
 adaptive_lr = customcallback.LrReducer(patience=cfgconst.patience, reduce_rate=cfgconst.lr_reduce_rate, reduce_nb=cfgconst.lr_reduce_nb, verbose=1)
 adaptive_lr.setmodel(model)
 
-thresh_option = 0.6
-for i in range(len(sys.argv)):
-	if sys.argv[i] == '-thresh':
-		thresh_option = float(sys.argv[i+1])
-		break
 
 if sys.argv[1]=='train':
 	#if len(sys.argv)>3:
@@ -250,5 +255,17 @@ elif sys.argv[1]=='testvideo':
 		print 'testvideo command is not correct:: python main.py testvideo pretrained.h5 [-thresh 0.6]'
 		exit()
 	utils.testvideo(model, videofile=cfgconst.videofile, confid_thresh=thresh_option)
+elif sys.argv[1]=='testsocketvideo':
+        if len(sys.argv) <3:
+                print 'testvideo command is not correct:: python main.py testsocketvideo pretrained.h5 [-thresh 0.6]'
+                exit()
+
+        MyTCPHandler = statusSever_socket.MyTCPHandler
+        MyTCPHandler.testmodel = model
+        MyTCPHandler.confid_thresh = thresh_option
+        HOST, PORT = "localhost", 9999
+        server = SocketServer.TCPServer((HOST, PORT), MyTCPHandler)
+        server.serve_forever()
+
 else:
 	print 'unsupported command option:'+sys.argv[1]
