@@ -39,7 +39,15 @@ TestVideo (need Python-OPENCV)
     
     It will show video with predicted bbox on the screen
     
+Testvideosocket (need Python-OPENCV)
+
+    Python main.py testvideosocket pretrained_Keras_model.h5 [-thresh 0.6]
     
+    Provide another method to test video/testimages, it act as image receiver, use imageClient.py to
+    
+        connect to it and provide the test video file or image files. 
+        
+
 Code explanation
 ---------------------------------------------------------------------------------------------
 
@@ -71,6 +79,8 @@ Running enviroment
 --------------------------------------------------------------------------------------------
 
 Tools :
+
+    Ubuntu 16.04 LTS 64-bit, Python 2.7.12
   
     Keras with tensorflow backend : Neoron Network training
 
