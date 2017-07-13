@@ -88,7 +88,29 @@ Tools :
 
 DataSets :
   
-    VOC : please reference http://pjreddie.com/darknet/yolo/ to create VOC datasets
+    VOC : detail please reference http://pjreddie.com/darknet/yolo/ to create VOC datasets, 
+    here are instructions from website.
+    
+    Get The Pascal VOC Data: (it may take long time to download)
+    in VOCdevkit/ dir
+    -------------------------------------------------------------------------------
+    curl -O https://pjreddie.com/media/files/VOCtrainval_11-May-2012.tar
+    curl -O https://pjreddie.com/media/files/VOCtrainval_06-Nov-2007.tar
+    curl -O https://pjreddie.com/media/files/VOCtest_06-Nov-2007.tar
+    tar xf VOCtrainval_11-May-2012.tar
+    tar xf VOCtrainval_06-Nov-2007.tar
+    tar xf VOCtest_06-Nov-2007.tar
+    -------------------------------------------------------------------------------
+    
+    Generate Labels for VOC:
+    in VOCdevkit/VOC2007/labels/ and VOCdevkit/VOC2012/labels/
+    -------------------------------------------------------------------------------
+    <object-class> <x> <y> <width> <height>  --- label format
+    -------------------------------------------------------------------------------
+    curl -O https://pjreddie.com/media/files/voc_label.py
+    python voc_label.py
+    -------------------------------------------------------------------------------
+    
     
     COCO : run coco_dataset_Creator.py, you may need to modify code to fit you folder path. It may take several hours 
             to download all images.
