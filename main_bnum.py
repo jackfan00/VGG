@@ -54,7 +54,7 @@ if len(sys.argv) < 2:
         print 'Usage:: python main.py testvideo pretrined.h5 [-thresh 0.6]'
         exit()
 
-#
+# here change to network
 model = builtinModel.add_regionDetect(builtinModel.yolotiny_model((448, 448, 3)), (cfgconst.side**2)*(cfgconst.classes+5)*cfgconst.bnum)
 for l in model.layers:
 	print l.name+' '+str(l.input_shape)+' -> '+str(l.output_shape)+', trainable:'+str(l.trainable)
