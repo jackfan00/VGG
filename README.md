@@ -8,14 +8,31 @@ This is a Keras implementation of YOLO1 neuron network.
     YOLO Real-Time Object Detection : YOLO paper please reference to http://pjreddie.com/darknet/yolo/
 
 
-Usage
+Usage (use main_bnum.py instead)
 ---------------------------------------------------------------------------------------
+DataSets
+
+    defined in detregion.cfg :
+    
+        trainset: indicate train list file
+        valset: indicate validate list file
+        testfile: indicate test file list for predict test
+        videofile: indicat video file for predict test
+        numberof_train_samples: maximum images to train, normally set to larger than trainsets to use all trainsets.
+            you can set smaller for debug
+
 
 Training and Debuging (need Python-OPENCV)
 
     Python main.py train [pretrained_Keras_model.h5]
     
     It will read-in all training images, so it maybe probably out of memory if trainSets is too large.
+    
+    in detregin.cfg setting: it will show image every batch end.
+        
+        debugimg=1
+        imagefordebugtrain=imagefordebug.txt
+    
     
     
 Train_on_batch
@@ -24,30 +41,61 @@ Train_on_batch
     
     It will only read-in 1 batch images for each training, so there is no out of memory issue. But may take
     longer time to train because of it read image from disk for every batch.
+
+    in detregin.cfg setting: it will show image every batch end.
+        
+        debugimg=1
+        imagefordebugtrain=imagefordebug.txt
+
     
-    
-TestFile (need Python-OPENCV)
+TestFile (need Python-OPENCV , workon cv)
 
     Python main.py testfile pretrained_Keras_model.h5 [-thresh 0.6]
     
-    It will show images with predicted bbox on the screen
+    It will read in test images defined in detregion.cfg and show images one by one with predicted bbox on the screen.
+       bbox in green-color is truth, white-colors is prediction 
+    predicted bbox show only "confidence value" > thresh (default 0.6)
+    
+    at image top : predict bbox IOU value
+    at predict box top (white color) : class probability
+    at predict box bottom (lightblue color) : confidence value
+    
 
-
-TestVideo (need Python-OPENCV)
+TestVideo (need Python-OPENCV , workon cv)
 
     Python main.py testvideo pretrained_Keras_model.h5 [-thresh 0.6]
     
-    It will show video with predicted bbox on the screen
+    It will read video file defined in detregion.cfg and show video with predicted bbox on the screen.
+    predicted bbox show only "confidence value" > thresh (default 0.6)
     
-Testvideosocket (need Python-OPENCV)
+    at image top : predict bbox IOU value
+    at predict box top (white color) : class probability
+    at predict box bottom (lightblue color) : confidence value
+    
+Testvideosocket (need Python-OPENCV , workon cv)
 
-    Python main.py testvideosocket pretrained_Keras_model.h5 [-thresh 0.6]
+    Python main.py testvideosocket pretrained_Keras_model.h5 [-thresh 0.6] 
+    -- it will wait for imageClient.py to send images/video --
+    
+    python imageClient.py imagefilelist.txt (must be .txt) -- it will send images for prediction 
+    
+    python imageClient.py xxxxx.mp4 (need Python-OPENCV , workon cv) -- it will send video for predcition
     
     Provide another method to test video/testimages, it act as image receiver, use imageClient.py to
-    
         connect to it and provide the test video file or image files. 
         
+Configure netwrok: 
 
+    the network is built in builtinModel.py code, it contains yolotiny, yolosmall, yolo, vgg16 network.
+    it use detregion network place on last stage (add_regionDetect in builtinModel.py code)
+    the last stage size is defined in detregion.cfg (= ((classes+5)*bnum)*side^2 )
+    
+    network code in main_bnum.py : change "builtinModel.yolotiny_model((448, 448, 3))" to yours.
+    (448, 448, 3) is input image size with 3 color
+    ------------------------------------------------------------------------------------------------------
+    model = builtinModel.add_regionDetect(builtinModel.yolotiny_model((448, 448, 3)), (cfgconst.side**2)*(cfgconst.classes+5)*cfgconst.bnum)
+    ------------------------------------------------------------------------------------------------------
+    
 Code explanation
 ---------------------------------------------------------------------------------------------
 
@@ -62,6 +110,8 @@ Code explanation
     imagefordebug.txt: image for train debug use case
     
     detregion.cfg: parameter setting file
+        
+   
 
 
 How to Training
