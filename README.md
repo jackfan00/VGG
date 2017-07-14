@@ -21,6 +21,10 @@ DataSets
         numberof_train_samples: maximum images to train, normally set to larger than trainsets to use all trainsets.
             you can set smaller for debug
 
+Pretrained weight: ( I cannot train it very well, it is just for a example)
+
+    https://drive.google.com/file/d/0BzLj4O82o8Hvc29qOFJpVHFaS2s/view?usp=sharing
+
 
 Training and Debuging (need Python-OPENCV)
 
