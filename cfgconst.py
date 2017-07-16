@@ -61,6 +61,9 @@ for l in f:
         elif ss[0].strip() == 'batch_size':
                 batch_size = int(ss[1].strip())
                 print 'batch_size='+str(batch_size)
+	elif ss[0].strip() == 'randomize':
+		randomize = int(ss[1].strip())
+		print 'randomize='+str(randomize)
         elif ss[0].strip() == 'labelnames':
                 labelnames_file = ss[1].strip()
                 print 'labelnames='+labelnames_file

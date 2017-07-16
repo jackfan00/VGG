@@ -97,7 +97,7 @@ if sys.argv[1]=='train':
 	
 
 	train_img_paths = genregiontruth_bnum.load_img_paths(cfgconst.trainset) #sys.argv[2])
-	(train_data, train_labels) = genregiontruth_bnum.load_data(train_img_paths, 448, 448, 3, cfgconst.numberof_train_samples, randomize=False)
+	(train_data, train_labels) = genregiontruth_bnum.load_data(train_img_paths, 448, 448, 3, cfgconst.numberof_train_samples, randomize=(cfgconst.randomize==1))
 	print '----load data done!'
 	#exit()
 
@@ -145,9 +145,9 @@ elif sys.argv[1]=='train_on_batch':
 		print 'epoch='+str(e+1)+'/'+str(nb_epoch)
 		seed = seed + 1
 		batch_index =0
-		randomize = True  # to make sure same random in 1 epoch, add seed parameter
+		randomize = (cfgconst.randomize==1)  # to make sure same random in 1 epoch, add seed parameter
 		#
-		if randomize:
+		if randomize and numberofsamples > len(train_img_paths):
 			random.seed(seed)
 			random.shuffle(train_img_paths)
 		#
@@ -159,14 +159,14 @@ elif sys.argv[1]=='train_on_batch':
 		# 
 		while (True):
 			#
-			if numberofsamples > (batch_size*batch_index):
+			if numberofsamples > (batch_size*(batch_index+1)):
 				load_numberofsamples = batch_size
 			elif numberofsamples == (batch_size*batch_index):
 				break
 			else:
-				load_numberofsamples = numberofsamples - batch_size*(batch_index-1)
+				load_numberofsamples = numberofsamples - batch_size*(batch_index)
 			#
-			(train_data, train_labels) = genregiontruth_bnum.load_data(train_img_paths, 448, 448, 3, numberofsamples=load_numberofsamples, batch_index=batch_index, batch_size=batch_size, train_on_batch=True )
+			(train_data, train_labels) = genregiontruth_bnum.load_data(train_img_paths, 448, 448, 3, numberofsamples=load_numberofsamples, batch_index=batch_index, batch_size=batch_size, train_on_batch=True, randomize=randomize )
 			train_result = model.train_on_batch(train_data, train_labels)
 			epoch_loss += train_result[0]
 			#
@@ -174,6 +174,7 @@ elif sys.argv[1]=='train_on_batch':
 			for i in range(len(train_result)):
 				sys.stdout.write('    '+model.metrics_names[i]+':'+"%0.4f" %(train_result[i])+' ')
 				ave_train_result[i] += train_result[i]
+			sys.stdout.write("\n")
 
 			sys.stdout.flush()
 			#
@@ -187,6 +188,7 @@ elif sys.argv[1]=='train_on_batch':
 		sys.stdout.write("\r%04d " %(batch_index)+'   epochloss:'+"%0.4f" %(epoch_loss)+' ')
 		for i in range(len(model.metrics_names)):
 			sys.stdout.write('    '+model.metrics_names[i]+':'+"%0.4f" %(ave_train_result[i]/batch_index)+' ')
+		sys.stdout.write("\n")
 		sys.stdout.flush()
 
 		adaptive_lr.on_epoch_end(epoch=e, logs={'loss':epoch_loss})
@@ -205,12 +207,12 @@ elif sys.argv[1]=='train_on_batch':
 			valtest = False
                 while (valtest):
                         #
-                        if numberofsamples > (batch_size*batch_index):
+                        if numberofsamples > (batch_size*(batch_index+1)):
                                 load_numberofsamples = batch_size
 			elif numberofsamples == (batch_size*batch_index):
 				break
                         else:
-                                load_numberofsamples = numberofsamples - batch_size*(batch_index-1)
+                                load_numberofsamples = numberofsamples - batch_size*(batch_index)
                         #
                         (test_data, test_labels) = genregiontruth_bnum.load_data(val_img_paths, 448, 448, 3, numberofsamples=load_numberofsamples, batch_index=batch_index, batch_size=batch_size, train_on_batch=True )
                         test_result = model.test_on_batch(test_data, test_labels)
@@ -237,7 +239,7 @@ elif sys.argv[1]=='train_on_batch':
 
 			print '-'
 
-		if adaptive_lr.istrainstop():
+		if adaptive_lr.istrainstop() and DEBUG_IMG==0:
 			break
 
 	model.save_weights('vggregion_finetune_weight.h5')

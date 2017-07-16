@@ -169,7 +169,7 @@ def load_img_paths(train_images):
 
 	return paths
 
-def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, batch_size=1, train_on_batch=False,randomize=True ):
+def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, batch_size=1, train_on_batch=False,randomize=False ):
         #if not train_on_batch:
         #        print 'Loading train data:'+train_images+'...'
 
@@ -257,7 +257,7 @@ def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, ba
 			index = (col+row*side)
 			#for i in range(bnumPercell):
 			# 1 bbox detector respnsible for small size bbox, the other for big size bbox
-			if box.w*box.h < 0.25:
+			if box.w*box.h < 0.25 or bnumPercell == 1:
 				i=0
 			else:
 				i=1
@@ -273,6 +273,8 @@ def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, ba
 		#exit()
 		#
 		Y_train.append(truth)
+
+		#print 'y obj count'+str(np.sum(truth))
 
 		#print 'draw rect bounding box'
 		#draw = ImageDraw.Draw(img)
