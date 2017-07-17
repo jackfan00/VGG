@@ -125,8 +125,8 @@ def readlabel(fn, sx, sy, dx, dy, flip, ssx, ssy):
 			box.orgh = float(ss[4]) 
 			#
 			# ignore small block
-			if box.orgw < 0.05 or box.orgh < 0.05:
-				continue
+			#if box.orgw < 0.05 or box.orgh < 0.05: 
+			#	continue
 			#
 			box.x = (box.orgx / sx - dx) * ssx
 			if flip ==1:
