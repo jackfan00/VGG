@@ -34,6 +34,7 @@ Training and Debuging (need Python-OPENCV)
     
     in detregin.cfg setting: it will show image every batch end.
         
+        (need Python-OPENCV , workon cv)
         debugimg=1
         imagefordebugtrain=imagefordebug.txt
     
@@ -48,23 +49,24 @@ Train_on_batch
 
     in detregin.cfg setting: it will show image every batch end.
         
-        debugimg=1
+        (need Python-OPENCV , workon cv)
+        debugimg=1 
         imagefordebugtrain=imagefordebug.txt
 
 TestOneFile
 
-    Python main_bnum.py testoneile pretrained_Keras_model.h5 xxx.jpg [-thresh 0.6]
+    Python main_bnum.py testoneile pretrained_Keras_model.h5 xxx.jpg 
     
     It will output predicted.png file contain bbox.
 
     
 TestFile (need Python-OPENCV , workon cv)
 
-    Python main_bnum.py testfile pretrained_Keras_model.h5 [-thresh 0.6]
+    Python main_bnum.py testfile pretrained_Keras_model.h5 
     
     It will read in test images defined in detregion.cfg and show images one by one with predicted bbox on the screen.
        bbox in green-color is truth, white-colors is prediction 
-    predicted bbox show only "confidence value" > thresh (default 0.6)
+    predicted bbox show only "confidence value" > thresh 
     
     at image top : predict bbox IOU value
     at predict box top (white color) : class probability
@@ -73,7 +75,7 @@ TestFile (need Python-OPENCV , workon cv)
 
 TestVideo (need Python-OPENCV , workon cv)
 
-    Python main_bnum.py testvideo pretrained_Keras_model.h5 [-thresh 0.6]
+    Python main_bnum.py testvideo pretrained_Keras_model.h5 
     
     It will read video file defined in detregion.cfg and show video with predicted bbox on the screen.
     predicted bbox show only "confidence value" > thresh (default 0.6)
@@ -84,7 +86,7 @@ TestVideo (need Python-OPENCV , workon cv)
     
 Testvideosocket (need Python-OPENCV , workon cv)
 
-    Python main_bnum.py testvideosocket pretrained_Keras_model.h5 [-thresh 0.6] 
+    Python main_bnum.py testvideosocket pretrained_Keras_model.h5 
     -- it will wait for imageClient.py to send images/video --
     
     python imageClient.py imagefilelist.txt (must be .txt) -- it will send images for prediction 
