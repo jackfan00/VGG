@@ -189,12 +189,57 @@ def testfeature(testmodel, img,w,h,c, onefeature, confid_thresh=0.2, waittime=10
 			else:
 				continue
 
+def testonefile(testmodel, img_path, confid_thresh=0.3, fordebug=False ):
+       	(s,w,h,c) = testmodel.layers[0].input_shape
+	fimg, sx, sy, dx, dy, flip,ssx,ssy = genregiontruth_bnum.crop_image(img_path.strip(), w, h, randomize=False)
+	xx = fimg.copy()
+	img = fimg.astype(float)
+	if fordebug:  # read label
+		fn=img_path.replace("/JPEGImages/","/labels/")
+		fn=fn.replace(".jpg",".txt")              #VOC
+		boxlist = genregiontruth_bnum.readlabel(fn.strip(), sx, sy, dx, dy, flip, ssx, ssy)
+	ttimg, x0_list, y0_list, x1_list, y1_list, classprob_list, class_id_list, confid_value_list = predict(preprocess_input(np.asarray([xx])), testmodel, confid_thresh,w,h,c)
 
-def testfile(testmodel, imglist_path, confid_thresh=0.2, waittime=50000, fordebug=False):
+	iimg = Image.fromarray(img.astype(np.uint8))
+	draw = ImageDraw.Draw(iimg)
+	if fordebug:
+		for box in boxlist:
+			draw.rectangle([(box.x-box.w/2)*w,(box.y-box.h/2)*h,(box.x+box.w/2)*w,(box.y+box.h/2)*h])
+
+	sortedindexlist = np.argsort(confid_value_list)
+	colors=[]
+	for i in range(3):
+		for j in range(7):
+			if i==0:
+				rcolor = (j+1)*32
+				gcolor = 0
+				bcolor = 0
+			elif i==1:
+				rcolor = 0
+				gcolor = (j+1)*32
+				bcolor = 0
+			else:
+				rcolor = 0
+				gcolor = 0
+				bcolor = (j+1)*32
+			colors.append( (rcolor, gcolor, bcolor, 128) )
+	print colors
+	#colors=[(255,0,0,128),(0,255,0,128),(0,0,255,128),(200,0,0,128),(0,200,0,128),(0,0,200,128),(128,0,0,128),(0,128,0,128),(0,0,128,128)]
+	for i in range(len(confid_value_list)):
+		index = sortedindexlist[len(confid_value_list)-i-1]
+		draw.rectangle([x0_list[index],y0_list[index],x1_list[index],y1_list[index]], outline=colors[class_id_list[index]])
+		print 'confid value: '+str(confid_value_list[index])+' color:'+str(colors[class_id_list[index]])+' classid:'+str(class_id_list[index])+' clasprob:'+str(classprob_list[index])
+	del draw
+	iimg.save('predicted.png')
+	
+
+
+def testfile(testmodel, imglist_path, confid_thresh=0.2, waittime=50000, fordebug=False ):
         #print 'testfile: '+imglist_path
         # custom objective function
         #print (s,w,h,c)
         #exit()
+	randomize= (cfgconst.randomize==1)
 	if os.path.isfile(imglist_path):
         	#testmodel = load_model(model_weights_path, custom_objects={'yololoss': ddd.yololoss})
         	(s,w,h,c) = testmodel.layers[0].input_shape
@@ -219,7 +264,7 @@ def testfile(testmodel, imglist_path, confid_thresh=0.2, waittime=50000, fordebu
 				#xx = image.img_to_array(timg)
 
 				#
-				fimg, sx, sy, dx, dy, flip,ssx,ssy = genregiontruth_bnum.crop_image(img_path.strip(), w, h, randomize=False)
+				fimg, sx, sy, dx, dy, flip,ssx,ssy = genregiontruth_bnum.crop_image(img_path.strip(), w, h, randomize=randomize)
 				if flip == -1:  # not rgb color image
 					continue
 				xx = fimg.copy()

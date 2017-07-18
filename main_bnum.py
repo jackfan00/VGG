@@ -245,6 +245,12 @@ elif sys.argv[1]=='train_on_batch':
 	model.save_weights('vggregion_finetune_weight.h5')
 
 
+elif sys.argv[1]=='testonefile':
+	if len(sys.argv) <4:
+		print 'testfile command is not correct:: python main.py testonefile pretrained.h5 xxx.jpg [-thresh 0.3]'
+		exit()
+	utils.testonefile(model, img_path=sys.argv[3], confid_thresh=thresh_option, fordebug=False)
+
 elif sys.argv[1]=='testfile':
 	if len(sys.argv) <3:
 		print 'testfile command is not correct:: python main.py testfile pretrained.h5 [-thresh 0.6]'

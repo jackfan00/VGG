@@ -20,6 +20,24 @@ def to_rgb2(im):
     ret[:, :, :] = im[:, :, np.newaxis]
     return ret
 
+def asratio_resize(im, outw, outh):
+	imw = im.size[0]
+	imh = im.size[1]
+	result=np.zeros((outw*outh*3)).reshape(outw,outh,3)
+	if (outw/imw > outh/imh):
+		ratio = outh/imh
+		imr = im.resize((imw*ratio, outh), Image.BILINEAR )
+		w, h = imr.size
+		offset = (outw - w)/2
+		result[:,offset:offset+w] = np.asarray(imr)
+	else:
+		ratio = outw/imw
+		imr = im.resize((outw, imh*ratio), Image.BILINEAR )
+		w, h = imr.size
+		offset = (outh - h)/2
+		result[offset:offset+w] = np.asarray(imr)
+	
+	return result
 
 # img value is 0~255
 def random_distort_image(img, contrast=1.0, brightness=1.0):
@@ -53,9 +71,13 @@ def crop_image(img_path, outw, outh, randomize=True):
 		return -1,-1,-1,-1,-1,-1,-1,-1
         #
         if not randomize:
+		orgw, orgh = img.size
+		sx = float(outw) / orgw
+		sy = float(outh) / orgh
                 b = img.resize( (outw, outh), Image.BILINEAR )
                 a = np.asarray(b, dtype=np.float32) #
-                return a, 1.0, 1.0, 0., 0., 0, 1.0, 1.0
+		#print sx, sy
+                return a, sx, sy, 0., 0., 0, 1.0, 1.0
 
 	#
 	dw = int(orgw * jitter)
@@ -114,15 +136,16 @@ def readlabel(fn, sx, sy, dx, dy, flip, ssx, ssy):
 	boxlist = []
 	f = open(fn)
 	for l in f:
+		#print l
 		try:
 			ss= l.strip().split(' ')
-			#print ss
 			box = regionbox()
 			box.id = int(ss[0])
 			box.orgx = float(ss[1]) 
 			box.orgy = float(ss[2]) 
 			box.orgw = float(ss[3]) 
 			box.orgh = float(ss[4]) 
+			#print ss
 			#
 			# ignore small block
 			#if box.orgw < 0.05 or box.orgh < 0.05: 
@@ -157,6 +180,7 @@ def readlabel(fn, sx, sy, dx, dy, flip, ssx, ssy):
 			#print 'box.orgx='+str(box.orgx)+',box.orgy='+str(box.orgy)+',box.orgw='+str(box.orgw)+',box.orgh='+str(box.orgh)
 			#print 'box.x='+str(box.x)+',box.y='+str(box.y)+',box.w='+str(box.w)+',box.h='+str(box.h)
 		except:
+			#print 'boxid=-1'
 			box.id = -1
 		boxlist.append(box)
 	return boxlist
@@ -184,6 +208,7 @@ def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, ba
 	bnumPercell = cfgconst.bnum
 	classes = cfgconst.classes
 
+	duplicate_block=0
 	X_train = []
 	Y_train = []
 	count = 1
@@ -217,7 +242,7 @@ def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, ba
 			#xx = image.img_to_array(img)
 			#xx = randompixel(xx)
 			#xx = preprocess_input(xx)
-			#(orgh,orgw) = img.size
+			#(orgw,orgh) = img.size
 			#nim = img.resize( (w, h), Image.BILINEAR )
 			#data = np.asarray( nim )
 			#if data.shape != (w, h, c):
@@ -235,6 +260,8 @@ def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, ba
 		#
 		# may have multi bounding box for 1 image
 		boxlist = readlabel(fn.strip(), sx,sy,dx,dy,flip,ssx,ssy)
+		#print boxlist
+		#exit()
 		
 		truth = np.zeros(side**2*(bckptsPercell+classes)*bnumPercell)
 		for box in boxlist:
@@ -261,6 +288,60 @@ def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, ba
 				i=0
 			else:
 				i=1
+			'''
+			if truth[index+i*(side**2)]==1:
+				indexlist=[]
+				dx = min(x,1-x)
+				dy = min(y,1-y)
+				if dx > dy and y < 0.5 and x < 0.5:
+					indexlist.append( col+max(0,row-1)*side )
+					indexlist.append( max(0,col-1)+row*side )
+					indexlist.append( min(side-1,col+1)+row*side )
+					indexlist.append( col+min(side-1,row+1)*side )
+				elif dx > dy and y < 0.5 and x > 0.5:
+					indexlist.append( col+max(0,row-1)*side )
+					indexlist.append( min(side-1,col+1)+row*side )
+					indexlist.append( max(0,col-1)+row*side )
+					indexlist.append( col+min(side-1,row+1)*side )
+				elif dx > dy and y > 0.5 and x < 0.5:
+					indexlist.append( col+min(side-1,row+1)*side )
+					indexlist.append( max(0,col-1)+row*side )
+					indexlist.append( min(side-1,col+1)+row*side )
+					indexlist.append( col+max(0,row-1)*side )
+				elif dx > dy and y > 0.5 and x > 0.5:
+					indexlist.append( col+min(side-1,row+1)*side )
+					indexlist.append( min(side-1,col+1)+row*side )
+					indexlist.append( max(0,col-1)+row*side )
+					indexlist.append( col+max(0,row-1)*side )
+				elif dx < dy and y < 0.5 and x < 0.5:
+					indexlist.append( max(0,col-1)+row*side )
+					indexlist.append( col+max(0,row-1)*side )
+					indexlist.append( col+min(side-1,row+1)*side )
+					indexlist.append( min(side-1,col+1)+row*side )
+				elif dx < dy and y < 0.5 and x > 0.5:
+					indexlist.append( min(side-1,col+1)+row*side )
+					indexlist.append( col+max(0,row-1)*side )
+					indexlist.append( col+min(side-1,row+1)*side )
+					indexlist.append( max(0,col-1)+row*side )
+				elif dx < dy and y > 0.5 and x < 0.5:
+					indexlist.append( max(0,col-1)+row*side )
+					indexlist.append( col+min(side-1,row+1)*side )
+					indexlist.append( col+max(0,row-1)*side )
+					indexlist.append( min(side-1,col+1)+row*side )
+				elif dx < dy and y > 0.5 and x > 0.5:
+					indexlist.append( min(side-1,col+1)+row*side )
+					indexlist.append( col+min(side-1,row+1)*side )
+					indexlist.append( col+max(0,row-1)*side )
+					indexlist.append( max(0,col-1)+row*side )
+				for idx in indexlist:
+					if truth[idx+i*(side**2)]==0:
+						index = idx
+						break
+			'''
+
+			if truth[index+i*(side**2)]==1:
+				duplicate_block=duplicate_block+1
+				continue
 			#
 			truth[index+i*(side**2)] = 1
 			truth[1*(side**2)*bnumPercell+index+i*(side**2)] = x
@@ -274,7 +355,6 @@ def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, ba
 		#
 		Y_train.append(truth)
 
-		#print 'y obj count'+str(np.sum(truth))
 
 		#print 'draw rect bounding box'
 		#draw = ImageDraw.Draw(img)
@@ -298,6 +378,8 @@ def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, ba
 			count = count + 1
 
 	#print len(X_train)
+	if duplicate_block>0:
+		print 'duplicate_block= '+str(duplicate_block)
 	XX_train = np.asarray(X_train)
 	YY_train = np.asarray(Y_train)
 	if not train_on_batch:
