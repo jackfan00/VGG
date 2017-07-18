@@ -28,7 +28,7 @@ Pretrained weight: ( I cannot train it very well, it is just for a example)
 
 Training and Debuging (need Python-OPENCV)
 
-    Python main.py train [pretrained_Keras_model.h5]
+    Python main_bnum.py train [pretrained_Keras_model.h5]
     
     It will read-in all training images, so it maybe probably out of memory if trainSets is too large.
     
@@ -41,7 +41,7 @@ Training and Debuging (need Python-OPENCV)
     
 Train_on_batch
 
-    Python main.py train_on_batch [pretrained_Keras_model.h5]
+    Python main_bnum.py train_on_batch [pretrained_Keras_model.h5]
     
     It will only read-in 1 batch images for each training, so there is no out of memory issue. But may take
     longer time to train because of it read image from disk for every batch.
@@ -51,10 +51,16 @@ Train_on_batch
         debugimg=1
         imagefordebugtrain=imagefordebug.txt
 
+TestOneFile
+
+    Python main_bnum.py testoneile pretrained_Keras_model.h5 xxx.jpg [-thresh 0.6]
+    
+    It will output predicted.jpg file contain bbox.
+
     
 TestFile (need Python-OPENCV , workon cv)
 
-    Python main.py testfile pretrained_Keras_model.h5 [-thresh 0.6]
+    Python main_bnum.py testfile pretrained_Keras_model.h5 [-thresh 0.6]
     
     It will read in test images defined in detregion.cfg and show images one by one with predicted bbox on the screen.
        bbox in green-color is truth, white-colors is prediction 
@@ -67,7 +73,7 @@ TestFile (need Python-OPENCV , workon cv)
 
 TestVideo (need Python-OPENCV , workon cv)
 
-    Python main.py testvideo pretrained_Keras_model.h5 [-thresh 0.6]
+    Python main_bnum.py testvideo pretrained_Keras_model.h5 [-thresh 0.6]
     
     It will read video file defined in detregion.cfg and show video with predicted bbox on the screen.
     predicted bbox show only "confidence value" > thresh (default 0.6)
@@ -78,7 +84,7 @@ TestVideo (need Python-OPENCV , workon cv)
     
 Testvideosocket (need Python-OPENCV , workon cv)
 
-    Python main.py testvideosocket pretrained_Keras_model.h5 [-thresh 0.6] 
+    Python main_bnum.py testvideosocket pretrained_Keras_model.h5 [-thresh 0.6] 
     -- it will wait for imageClient.py to send images/video --
     
     python imageClient.py imagefilelist.txt (must be .txt) -- it will send images for prediction 
