@@ -201,7 +201,7 @@ def testonefile(testmodel, img_path, confid_thresh=0.3, fordebug=False ):
 	ttimg, x0_list, y0_list, x1_list, y1_list, classprob_list, class_id_list, confid_value_list = predict(preprocess_input(np.asarray([xx])), testmodel, confid_thresh,w,h,c)
 
 	iimg = Image.fromarray(img.astype(np.uint8))
-	draw = ImageDraw.Draw(iimg)
+	draw = ImageDraw.Draw(iimg, 'RGBA')
 	if fordebug:
 		for box in boxlist:
 			draw.rectangle([(box.x-box.w/2)*w,(box.y-box.h/2)*h,(box.x+box.w/2)*w,(box.y+box.h/2)*h])
@@ -222,13 +222,20 @@ def testonefile(testmodel, img_path, confid_thresh=0.3, fordebug=False ):
 				rcolor = 0
 				gcolor = 0
 				bcolor = (j+1)*32
-			colors.append( (rcolor, gcolor, bcolor, 128) )
-	print colors
-	#colors=[(255,0,0,128),(0,255,0,128),(0,0,255,128),(200,0,0,128),(0,200,0,128),(0,0,200,128),(128,0,0,128),(0,128,0,128),(0,0,128,128)]
+			colors.append( (rcolor, gcolor, bcolor, 127) )
+	#print colors
+		
 	for i in range(len(confid_value_list)):
 		index = sortedindexlist[len(confid_value_list)-i-1]
 		draw.rectangle([x0_list[index],y0_list[index],x1_list[index],y1_list[index]], outline=colors[class_id_list[index]])
-		print 'confid value: '+str(confid_value_list[index])+' color:'+str(colors[class_id_list[index]])+' classid:'+str(class_id_list[index])+' clasprob:'+str(classprob_list[index])
+		x = (x0_list[index]+x1_list[index])/2.
+		y = (y0_list[index]+y1_list[index])/2.
+		x0 = int(x/w*cfgconst.side)*w/cfgconst.side
+		y0 = int(y/h*cfgconst.side)*h/cfgconst.side
+		x1 = x0 + float(w)/cfgconst.side
+		y1 = y0 + float(h)/cfgconst.side
+		draw.rectangle([x0,y0,x1,y1], fill=colors[class_id_list[index]] )
+		print 'confid value: '+str(confid_value_list[index])+' color:'+str(colors[class_id_list[index]])+' classid:'+str(cfgconst.label_names[class_id_list[index]])+' clasprob:'+str(classprob_list[index])
 	del draw
 	iimg.save('predicted.png')
 	

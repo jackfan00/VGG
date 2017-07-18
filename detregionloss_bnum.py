@@ -104,7 +104,7 @@ def overlap(x1, w1, x2, w2):
         result = right - left
 	return result
 
-def iou(x_true,y_true,w_true,h_true,x_pred,y_pred,w_pred,h_pred,t):
+def iou(x_true,y_true,w_true,h_true,x_pred,y_pred,w_pred,h_pred,t,pred_confid_tf):
 	xoffset = K.cast_to_floatx(np.tile(np.tile(np.arange(side),side),bnum))
         yoffset = K.cast_to_floatx(np.tile(np.repeat(np.arange(side),side),bnum))
 
@@ -129,9 +129,20 @@ def iou(x_true,y_true,w_true,h_true,x_pred,y_pred,w_pred,h_pred,t):
 	obj_count = K.sum(tf.select(t, K.ones_like(x_true), K.zeros_like(x_true)))
 	ave_iou = K.sum(iouall) / (obj_count+0.0000001)
 	recall_t = K.greater(iouall, 0.5)
-	recall_count = K.sum(tf.select(recall_t, K.ones_like(iouall), K.zeros_like(iouall)))
-	recall = recall_count / (obj_count+0.00000001)
-	bestiou_flag = t   # nouse
+	#recall_count = K.sum(tf.select(recall_t, K.ones_like(iouall), K.zeros_like(iouall)))
+
+	fid_t = K.greater(pred_confid_tf, cfgconst.confid_thresh)
+	recall_count_all = K.sum(tf.select(fid_t, K.ones_like(iouall), K.zeros_like(iouall)))
+
+	#  
+	obj_fid_t = tf.logical_and(fid_t, t)
+	obj_fid_t = tf.logical_and(fid_t, recall_t)
+	effevtive_iou_count = K.sum(tf.select(obj_fid_t, K.ones_like(iouall), K.zeros_like(iouall)))
+
+	recall = effevtive_iou_count / (obj_count+0.00000001)
+	precision = effevtive_iou_count / (recall_count_all+0.0000001)
+	
+	#bestiou_flag = t   # nouse
 
 
         #nouse_iouall = K.reshape(iouall, (-1, bnum, gridcells))
@@ -167,7 +178,7 @@ def iou(x_true,y_true,w_true,h_true,x_pred,y_pred,w_pred,h_pred,t):
 
 
 
-	return ave_iou, recall, bestiou_flag, obj_count, intersection, union,ow,oh,x,y,w,h
+	return ave_iou, recall, precision, obj_count, intersection, union,ow,oh,x,y,w,h
 	#return obj_count, ave_iou, bestiou 
 
 # shape is (gridcells*(5+classes), )
@@ -224,7 +235,7 @@ def yololoss(y_true, y_pred):
 	#	pred_classes_tf.append(ctf)
 
 	t = K.greater(truth_confid_tf, 0.5) 
-	ave_iou, recall, bestiou_flag,obj_count, intersection, union,ow,oh,x,y,w,h = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
+	ave_iou, recall, precision, obj_count, intersection, union,ow,oh,x,y,w,h = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t, pred_confid_tf)
 
 	# constraint bestiou
         #t = tf.logical_and(t, bestiou_flag)
@@ -262,7 +273,7 @@ def yololoss(y_true, y_pred):
 	if DEBUG_loss:
 		return pred_classall_softmax_tf, truth_classes_tf_flattern, classesloss, ave_cat, loss1, lo
 	else:
-		return loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, bestiou_flag,obj_count, intersection, union,ow,oh,x,y,w,h
+		return loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, precision, obj_count, intersection, union,ow,oh,x,y,w,h
 
 
 def limit(x):
@@ -272,13 +283,13 @@ def limit(x):
 
 def regionloss(y_true, y_pred):
 	limited_pred = limit(y_pred)
-	loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, bestiou_flag,obj_count, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
+	loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, precision, obj_count, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
 	#return confidloss+xloss+yloss+wloss+hloss
 	return loss
 
 def regionmetrics(y_true, y_pred):
 	limited_pred = limit(y_pred)
-        loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, bestiou_flag,obj_count, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
+        loss,confidloss,xloss,yloss,wloss,hloss,classesloss, ave_cat, ave_obj, ave_anyobj, ave_iou, recall, precision, obj_count, intersection, union,ow,oh,x,y,w,h = yololoss(y_true, limited_pred)
 	pw = K.sum(w)
 	ph = K.sum(h)
 	return {
@@ -294,7 +305,8 @@ def regionmetrics(y_true, y_pred):
 		'ave_anyobj' : ave_anyobj,
 		'ave_iou' : ave_iou,
 		'recall' : recall,
-		'obj_count' : obj_count
+		'obj_count' : obj_count,
+		'precision' : precision
 		#'predw' : pw,
 		#'predh' : ph,
 		#'ow' : K.sum(ow),
@@ -358,11 +370,11 @@ if DEBUG_loss:
         pred_w_tf =K.placeholder(ndim=2)
         pred_h_tf =K.placeholder(ndim=2)
 
-        ave_iou,recall,bestiou_flag,objcount, intersection, union,ow,oh,x,y,w,h = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
-	#iouf = K.function([truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t], [ave_iou,recall,bestiou_flag, intersection, union,ow,oh,x,y,w,h])
+        ave_iou,recall,precision,objcount, intersection, union,ow,oh,x,y,w,h = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
+	#iouf = K.function([truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t], [ave_iou,recall,precision, intersection, union,ow,oh,x,y,w,h])
 
 	#iouall, maxiou_inbox, bestiou_flag = iou(truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t)
-	iouf = K.function([truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t], [ave_iou,recall,bestiou_flag,objcount,intersection, union,ow,oh,x,y,w,h])
+	iouf = K.function([truth_x_tf,truth_y_tf,truth_w_tf,truth_h_tf,pred_x_tf,pred_y_tf,pred_w_tf,pred_h_tf,t], [ave_iou,recall,precision,objcount,intersection, union,ow,oh,x,y,w,h])
 
 	# 0.507 0.551051051051 0.39 0.51951951952
 	np_t = np.zeros((side**2)*bnum*2).reshape(2,(side**2)*bnum)
@@ -409,10 +421,10 @@ if DEBUG_loss:
         ph[1][1+obj_row*side+obj_col+(side**2)] = ph[0][obj_row*side+obj_col]
 
 
-	[v_ave_iou,v_recall,v_bestiou_flag,v_objcount,v_intersection, v_union,v_ow,v_oh,v_x,v_y,v_w,v_h] = iouf([tx,ty,tw,th,px,py,pw,ph,obj_t])
+	[v_ave_iou,v_recall,v_precision,v_objcount,v_intersection, v_union,v_ow,v_oh,v_x,v_y,v_w,v_h] = iouf([tx,ty,tw,th,px,py,pw,ph,obj_t])
 	#[a0,a1,a2,a3,a4,b0,b1,c0,c1,c2,c3]= iouf([tx,ty,tw,th,px,py,pw,ph,obj_t])
 	#[a0,a1,a2]= iouf([tx,ty,tw,th,px,py,pw,ph,obj_t])
-	debugoutfile.write(str([v_ave_iou,v_recall,v_bestiou_flag,v_objcount,v_intersection, v_union,v_ow,v_oh,v_x,v_y,v_w,v_h])+str([tx,ty,tw,th])) 
+	debugoutfile.write(str([v_ave_iou,v_recall,v_precision,v_objcount,v_intersection, v_union,v_ow,v_oh,v_x,v_y,v_w,v_h])+str([tx,ty,tw,th])) 
 	debugoutfile.close()
 
 

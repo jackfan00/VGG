@@ -64,6 +64,9 @@ for l in f:
 	elif ss[0].strip() == 'randomize':
 		randomize = int(ss[1].strip())
 		print 'randomize='+str(randomize)
+	elif ss[0].strip() == 'confid_thresh':
+		confid_thresh = float(ss[1].strip())
+		print 'confid_thresh='+str(confid_thresh)
         elif ss[0].strip() == 'labelnames':
                 labelnames_file = ss[1].strip()
                 print 'labelnames='+labelnames_file

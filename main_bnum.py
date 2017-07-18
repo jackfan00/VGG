@@ -48,10 +48,11 @@ def VGGregionModel(inputshape):
 
 if len(sys.argv) < 2:
 	print 'Command error --'
-        print 'Usage:: python main.py train [pretrined.h5]'
-        print 'Usage:: python main.py train_on_batch [pretrined.h5]'
-        print 'Usage:: python main.py testfile pretrined.h5 [-thresh 0.6]'
-        print 'Usage:: python main.py testvideo pretrined.h5 [-thresh 0.6]'
+        print 'Usage:: python main_bnum.py train [pretrined.h5]'
+        print 'Usage:: python main_bnum.py train_on_batch [pretrined.h5]'
+        print 'Usage:: python main_bnum.py testonefile pretrined.h5 xxx.jpg '
+        print 'Usage:: python main_bnum.py testfile pretrined.h5 '
+        print 'Usage:: python main_bnum.py testvideo pretrined.h5 '
         exit()
 
 # here change to network
@@ -73,11 +74,12 @@ model.compile(optimizer=sgd, loss=detregionloss_bnum.regionloss, metrics=[detreg
 #
 #
 
-thresh_option = 0.6
-for i in range(len(sys.argv)):
-        if sys.argv[i] == '-thresh':
-                thresh_option = float(sys.argv[i+1])
-                break
+thresh_option = cfgconst.confid_thresh
+
+#for i in range(len(sys.argv)):
+#        if sys.argv[i] == '-thresh':
+#                thresh_option = float(sys.argv[i+1])
+#                break
 #
 nb_epoch =cfgconst.nb_epoch
 batch_size =cfgconst.batch_size
@@ -247,23 +249,23 @@ elif sys.argv[1]=='train_on_batch':
 
 elif sys.argv[1]=='testonefile':
 	if len(sys.argv) <4:
-		print 'testfile command is not correct:: python main.py testonefile pretrained.h5 xxx.jpg [-thresh 0.3]'
+		print 'testfile command is not correct:: python main.py testonefile pretrained.h5 xxx.jpg '
 		exit()
 	utils.testonefile(model, img_path=sys.argv[3], confid_thresh=thresh_option, fordebug=False)
 
 elif sys.argv[1]=='testfile':
 	if len(sys.argv) <3:
-		print 'testfile command is not correct:: python main.py testfile pretrained.h5 [-thresh 0.6]'
+		print 'testfile command is not correct:: python main.py testfile pretrained.h5 '
 		exit()
 	utils.testfile(model, imglist_path=cfgconst.testfile, confid_thresh=thresh_option, fordebug=True)
 elif sys.argv[1]=='testvideo':
 	if len(sys.argv) <3:
-		print 'testvideo command is not correct:: python main.py testvideo pretrained.h5 [-thresh 0.6]'
+		print 'testvideo command is not correct:: python main.py testvideo pretrained.h5 '
 		exit()
 	utils.testvideo(model, videofile=cfgconst.videofile, confid_thresh=thresh_option)
 elif sys.argv[1]=='testsocketvideo':
 	if len(sys.argv) <3:
-                print 'testvideo command is not correct:: python main.py testsocketvideo pretrained.h5 [-thresh 0.6]'
+                print 'testvideo command is not correct:: python main.py testsocketvideo pretrained.h5 '
                 exit()
 
 	MyTCPHandler = statusSever_socket.MyTCPHandler
