@@ -8,7 +8,7 @@ This is a Keras implementation of YOLO1 neuron network.
     YOLO Real-Time Object Detection : YOLO paper please reference to http://pjreddie.com/darknet/yolo/
 
 
-Usage (use main_bnum.py instead)
+Usage
 ---------------------------------------------------------------------------------------
 DataSets
 
@@ -55,7 +55,7 @@ TestOneFile
 
     Python main_bnum.py testoneile pretrained_Keras_model.h5 xxx.jpg [-thresh 0.6]
     
-    It will output predicted.jpg file contain bbox.
+    It will output predicted.png file contain bbox.
 
     
 TestFile (need Python-OPENCV , workon cv)
