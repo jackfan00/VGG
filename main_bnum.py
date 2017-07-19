@@ -147,11 +147,12 @@ elif sys.argv[1]=='train_on_batch':
 		print 'epoch='+str(e+1)+'/'+str(nb_epoch)
 		seed = seed + 1
 		batch_index =0
-		randomize = (cfgconst.randomize==1)  # to make sure same random in 1 epoch, add seed parameter
+		shuffle = (cfgconst.shuffle==1)  # to make sure same random in 1 epoch, add seed parameter
 		#
-		if randomize and numberofsamples > len(train_img_paths):
+		if shuffle and numberofsamples > len(train_img_paths):
 			random.seed(seed)
 			random.shuffle(train_img_paths)
+			print 'shuffle'
 		#
 
 		epoch_loss =0
@@ -168,7 +169,7 @@ elif sys.argv[1]=='train_on_batch':
 			else:
 				load_numberofsamples = numberofsamples - batch_size*(batch_index)
 			#
-			(train_data, train_labels) = genregiontruth_bnum.load_data(train_img_paths, 448, 448, 3, numberofsamples=load_numberofsamples, batch_index=batch_index, batch_size=batch_size, train_on_batch=True, randomize=randomize )
+			(train_data, train_labels) = genregiontruth_bnum.load_data(train_img_paths, 448, 448, 3, numberofsamples=load_numberofsamples, batch_index=batch_index, batch_size=batch_size, train_on_batch=True, randomize=(cfgconst.randomize==1) )
 			train_result = model.train_on_batch(train_data, train_labels)
 			epoch_loss += train_result[0]
 			#
@@ -203,8 +204,9 @@ elif sys.argv[1]=='train_on_batch':
                 for i in range(len(model.metrics_names)):
                         ave_test_result.append(0)
                 #
-		if ((e+1) % 20)==0 :
+		if ((e+1) % 10)==0 :
 			valtest = True
+			model.save_weights('weight_tmp.h5')
 		else:
 			valtest = False
                 while (valtest):

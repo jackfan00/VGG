@@ -54,7 +54,7 @@ def random_distort_image(img, contrast=1.0, brightness=1.0):
 
 
 def crop_image(img_path, outw, outh, randomize=True):
-	jitter = 0.1
+	jitter = cfgconst.jitter
 	#img = Image.open(img_path.strip())
 	ckimg = scipy.misc.imread(img_path.strip())
 	try:
