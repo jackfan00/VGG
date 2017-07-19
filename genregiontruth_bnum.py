@@ -8,6 +8,11 @@ import cfgconst
 from keras.applications.vgg16 import preprocess_input
 import random 
 
+
+DEBUG_IMG = False
+
+
+
 class regionbox():
 	def __init__(self):
 		self
@@ -93,7 +98,8 @@ def crop_image(img_path, outw, outh, randomize=True):
 	dx = float(pleft) / swidth
 	dy = float(ptop) / sheight
 	flip = int(random.random()*2)
-	asratio = int(random.random()*3)
+	#print np.random.uniform(0,1)*3
+	asratio = int(np.random.uniform(0,1)*3)
 	#print 'dw='+str(dw)+',dh='+str(dh)+',pleft='+str(pleft)+',pright='+str(pright)+',ptop='+str(ptop)+',pbot='+str(pbot)+',swidth='+str(swidth)+',sheight='+str(sheight)
 	# crop, 0 for ouside image
 	cropped = img.crop((pleft, ptop, orgw-pright, orgh-pbot))
@@ -101,6 +107,7 @@ def crop_image(img_path, outw, outh, randomize=True):
 	# resize
 	ssy =1.0
 	ssx =1.0
+	print asratio
 	if asratio>=1:  # maintain aspect ratio
 		r0 = float(outw)/swidth
 		r1 = float(outh)/sheight
@@ -262,6 +269,8 @@ def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, ba
 		boxlist = readlabel(fn.strip(), sx,sy,dx,dy,flip,ssx,ssy)
 		#print boxlist
 		#exit()
+		debugimg = Image.fromarray(X_train[0].astype(np.uint8))
+		draw = ImageDraw.Draw(debugimg,'RGBA')
 		
 		truth = np.zeros(side**2*(bckptsPercell+classes)*bnumPercell)
 		for box in boxlist:
@@ -351,7 +360,24 @@ def load_data(paths, h, w, c,numberofsamples, truthonly=False, batch_index=0, ba
 			#print 'index='+str(index)+' '+str(box.x)+' '+str(box.y)+' '+str(box.w)+' '+str(box.h)
 			truth[(5+box.id)*(side**2)*bnumPercell+index+i*(side**2)] =1
 
-		#exit()
+			if DEBUG_IMG:
+				y0 = ((row+y)/side - box.h/2)*h
+				x0 = ((col+x)/side - box.w/2)*w
+				y1 = ((row+y)/side + box.h/2)*h
+				x1 = ((col+x)/side + box.w/2)*w
+				for kk in range(5):
+					draw.rectangle([x0+kk,y0+kk,x1-kk,y1-kk], outline=(255,0,0,100))
+				draw.ellipse(((x0+x1)/2-10, (y0+y1)/2-10, (x0+x1)/2+10, (y0+y1)/2+10), fill=(255,255,0,255))
+				y0 = float(row)/side * h
+				y1 = float(row+1)/side * h
+				x0 = float(col)/side * w
+				x1 = float(col+1)/side * w
+				draw.rectangle([x0,y0,x1,y1], fill=(255,0,0,100))
+
+		if DEBUG_IMG:
+			del draw
+			debugimg.save('ttt.png')
+			exit()
 		#
 		Y_train.append(truth)
 
