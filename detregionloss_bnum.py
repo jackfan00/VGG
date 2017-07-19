@@ -54,12 +54,12 @@ def yoloxyloss(y_true, y_pred, t):
 # shape is (gridcells*2,)
 def yolowhloss(y_true, y_pred, t):
 	real_y_true = tf.select(t, y_true, K.zeros_like(y_true))
-        lo = K.square(real_y_true-K.sigmoid(y_pred))
+        lo = K.square(K.sqrt(real_y_true)-K.sqrt(K.sigmoid(y_pred)))   
 	# let w,h not too small or large
         #lo = K.square(y_true-y_pred)+reguralar_wh*K.square(0.5-y_pred)
         value_if_true = lamda_wh*(lo)
         value_if_false = K.zeros_like(y_true)
-        loss1 = tf.select(t, value_if_true, value_if_false)
+        loss1 = tf.select(t, value_if_true , value_if_false)
 	#return K.mean(loss1/(y_true+0.000000001))
 	#return K.mean(value_if_true)
 	objsum = K.sum(y_true)

@@ -107,8 +107,8 @@ def crop_image(img_path, outw, outh, randomize=True):
 	# resize
 	ssy =1.0
 	ssx =1.0
-	print asratio
-	if asratio>=1:  # maintain aspect ratio
+	#print asratio
+	if asratio>=10:  # maintain aspect ratio
 		r0 = float(outw)/swidth
 		r1 = float(outh)/sheight
 		if asratio==1:
